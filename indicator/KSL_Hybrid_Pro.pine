@@ -44,14 +44,14 @@ f_bias(string tf) =>
 f_bias_text(int bias) => bias == 1 ? "POSITIVE" : bias == -1 ? "NEGATIVE" : "NEUTRAL"
 f_bias_color(int bias) => bias == 1 ? color.new(color.lime, 0) : bias == -1 ? color.new(color.red, 0) : color.new(color.gray, 0)
 
-f_level_label(label current, float price, string text, color textColor) =>
+f_level_label(label current, float price, string labelText, color textColor) =>
     label result = current
     if barstate.islast and not na(price)
         if na(result)
-            result := label.new(bar_index + 2, price, text, xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=textColor, size=size.tiny)
+            result := label.new(bar_index + 2, price, labelText, xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=textColor, size=size.tiny)
         else
             label.set_xy(result, bar_index + 2, price)
-            label.set_text(result, text)
+            label.set_text(result, labelText)
             label.set_textcolor(result, textColor)
     result
 
@@ -329,4 +329,3 @@ alertcondition(sellSignal, "KSL SELL", "KSL Hybrid Pro SELL confirmation on {{ti
 alertcondition(buySideSweep or sellSideSweep, "KSL Liquidity Sweep", "KSL liquidity sweep on {{ticker}} {{interval}}")
 alertcondition(bullBos or bearBos, "KSL BOS", "KSL break of structure on {{ticker}} {{interval}}")
 alertcondition(bullChoch or bearChoch, "KSL CHoCH", "KSL change of character on {{ticker}} {{interval}}")
-
