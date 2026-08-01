@@ -38,18 +38,18 @@ Three-candle displacement identifies fair value gaps. The final opposite candle 
 
 ## Signal score
 
-BUY and SELL use mirrored conditions:
+BUY and SELL are considered only during the configurable post-sweep entry window. The strength score uses mirrored conditions:
 
 | Confluence | Points |
 | --- | ---: |
-| D/H4/H1 directional alignment | 2 |
-| Opposing-side liquidity sweep | 2 |
-| Price trades in the relevant zone | 1 |
-| Rejection beyond zone equilibrium | 1 |
-| Structure confirmation | 1 |
-| Directional confirmation candle | 1 |
+| H1 directional alignment | 20 |
+| H4 context alignment | 10 |
+| M15 setup alignment | 10 |
+| Active post-sweep entry window | 30 |
+| Relevant order block or support/resistance | 15 |
+| Aligned recent H1 CRT | 15 |
 
-The default threshold is 6/8. A cooldown prevents repeated adjacent signals. The optional UTC session filter can restrict evaluation to the configured London/New York window.
+The default threshold is 65/100. The label is created only after an additional directional confirmation candle. A cooldown prevents repeated adjacent signals. The optional UTC session filter can restrict evaluation to the configured London/New York window.
 
 ## Non-repainting policy
 
