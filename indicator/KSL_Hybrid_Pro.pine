@@ -18,10 +18,13 @@ groupDisplay = "Display"
 showLiquidity = input.bool(true, "Liquidity levels", group=groupDisplay)
 showStructure = input.bool(true, "BOS / CHoCH / MSS", group=groupDisplay)
 showZones = input.bool(true, "Supply and demand", group=groupDisplay)
-showFvg = input.bool(true, "Fair value gaps", group=groupDisplay)
-showOrderBlocks = input.bool(true, "Order / breaker blocks", group=groupDisplay)
+showFvg = input.bool(false, "Fair value gaps", group=groupDisplay, tooltip="Off by default for a cleaner chart")
+showOrderBlocks = input.bool(false, "Order / breaker blocks", group=groupDisplay, tooltip="Off by default for a cleaner chart")
 showSignals = input.bool(true, "BUY / SELL signals", group=groupDisplay)
 showDashboard = input.bool(true, "Dashboard", group=groupDisplay)
+maxStructureLabels = input.int(8, "Maximum structure labels", minval=2, maxval=30, group=groupDisplay)
+maxLiquidityLabels = input.int(6, "Maximum liquidity labels", minval=2, maxval=20, group=groupDisplay)
+maxFvgZones = input.int(6, "Maximum FVG zones", minval=1, maxval=20, group=groupDisplay)
 
 groupRisk = "Signal filters"
 minSignalScore = input.int(6, "Minimum signal score", minval=3, maxval=8, group=groupRisk)
@@ -58,6 +61,16 @@ f_level_label(label current, float price, string labelText, color textColor) =>
 f_zone_distance(float price, float top, float bottom) =>
     na(top) or na(bottom) ? na : price > top ? price - top : price < bottom ? bottom - price : 0.0
 
+f_store_label(array<label> bucket, label item, int maximum) =>
+    array.push(bucket, item)
+    if array.size(bucket) > maximum
+        label.delete(array.shift(bucket))
+
+f_store_box(array<box> bucket, box item, int maximum) =>
+    array.push(bucket, item)
+    if array.size(bucket) > maximum
+        box.delete(array.shift(bucket))
+
 // -----------------------------------------------------------------------------
 // Multi-timeframe liquidity draw (closed higher-timeframe candles only)
 // -----------------------------------------------------------------------------
@@ -65,12 +78,12 @@ f_zone_distance(float price, float top, float bottom) =>
 [h4High, h4Low] = request.security(syminfo.tickerid, "240", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h1High, h1Low] = request.security(syminfo.tickerid, "60", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 
-plot(showLiquidity ? dailyHigh : na, "Daily High", color=color.black, linewidth=2, style=plot.style_stepline)
-plot(showLiquidity ? dailyLow : na, "Daily Low", color=color.black, linewidth=2, style=plot.style_stepline)
-plot(showLiquidity ? h4High : na, "H4 High", color=color.yellow, linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h4Low : na, "H4 Low", color=color.yellow, linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h1High : na, "H1 High", color=color.lime, linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h1Low : na, "H1 Low", color=color.lime, linewidth=1, style=plot.style_stepline)
+plot(showLiquidity ? dailyHigh : na, "Daily High", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
+plot(showLiquidity ? dailyLow : na, "Daily Low", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
+plot(showLiquidity ? h4High : na, "H4 High", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline)
+plot(showLiquidity ? h4Low : na, "H4 Low", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline)
+plot(showLiquidity ? h1High : na, "H1 High", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline)
+plot(showLiquidity ? h1Low : na, "H1 Low", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline)
 
 var label dailyHighLabel = na
 var label dailyLowLabel = na
@@ -100,6 +113,9 @@ var float buySideLiquidity = na
 var float sellSideLiquidity = na
 var line buySideLine = na
 var line sellSideLine = na
+var array<label> structureLabels = array.new<label>()
+var array<label> liquidityLabels = array.new<label>()
+var array<box> fvgBoxes = array.new<box>()
 
 if not na(pivotHigh)
     priorSwingHigh := lastSwingHigh
@@ -110,7 +126,8 @@ if not na(pivotHigh)
             if not na(buySideLine)
                 line.delete(buySideLine)
             buySideLine := line.new(bar_index - swingLength * 3, buySideLiquidity, bar_index, buySideLiquidity, extend=extend.right, color=color.new(color.red, 15), style=line.style_dashed)
-            label.new(bar_index - swingLength, buySideLiquidity, "Buy Side Liquidity / EQH", style=label.style_label_down, color=color.new(color.red, 80), textcolor=color.white, size=size.tiny)
+            liquidityLabel = label.new(bar_index - swingLength, buySideLiquidity, "BSL / EQH", style=label.style_label_down, color=color.new(color.red, 70), textcolor=color.white, size=size.tiny)
+            f_store_label(liquidityLabels, liquidityLabel, maxLiquidityLabels)
 
 if not na(pivotLow)
     priorSwingLow := lastSwingLow
@@ -121,7 +138,8 @@ if not na(pivotLow)
             if not na(sellSideLine)
                 line.delete(sellSideLine)
             sellSideLine := line.new(bar_index - swingLength * 3, sellSideLiquidity, bar_index, sellSideLiquidity, extend=extend.right, color=color.new(color.aqua, 15), style=line.style_dashed)
-            label.new(bar_index - swingLength, sellSideLiquidity, "Sell Side Liquidity / EQL", style=label.style_label_up, color=color.new(color.aqua, 80), textcolor=color.white, size=size.tiny)
+            liquidityLabel = label.new(bar_index - swingLength, sellSideLiquidity, "SSL / EQL", style=label.style_label_up, color=color.new(color.aqua, 70), textcolor=color.black, size=size.tiny)
+            f_store_label(liquidityLabels, liquidityLabel, maxLiquidityLabels)
 
 bullBreak = isConfirmed and not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
 bearBreak = isConfirmed and not na(lastSwingLow) and ta.crossunder(close, lastSwingLow)
@@ -136,19 +154,23 @@ if bearBreak
     structureTrend := -1
 
 if showStructure and bullBreak
-    label.new(bar_index, low, bullChoch ? "Bullish CHoCH / MSS" : "Bullish BOS", style=label.style_label_up, color=color.new(color.lime, 15), textcolor=color.black, size=size.tiny)
+    structureLabel = label.new(bar_index, low, bullChoch ? "CHoCH+" : "BOS+", style=label.style_label_up, color=color.new(color.lime, 25), textcolor=color.black, size=size.tiny)
+    f_store_label(structureLabels, structureLabel, maxStructureLabels)
 if showStructure and bearBreak
-    label.new(bar_index, high, bearChoch ? "Bearish CHoCH / MSS" : "Bearish BOS", style=label.style_label_down, color=color.new(color.red, 15), textcolor=color.white, size=size.tiny)
+    structureLabel = label.new(bar_index, high, bearChoch ? "CHoCHâˆ’" : "BOSâˆ’", style=label.style_label_down, color=color.new(color.red, 25), textcolor=color.white, size=size.tiny)
+    f_store_label(structureLabels, structureLabel, maxStructureLabels)
 
 buySideSweep = isConfirmed and not na(buySideLiquidity) and high > buySideLiquidity and close < buySideLiquidity
 sellSideSweep = isConfirmed and not na(sellSideLiquidity) and low < sellSideLiquidity and close > sellSideLiquidity
 if buySideSweep
     if showLiquidity
-        label.new(bar_index, high, "BSL SWEEP", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.black, size=size.tiny)
+        sweepLabel = label.new(bar_index, high, "BSL SWEEP", style=label.style_label_down, color=color.new(color.orange, 10), textcolor=color.black, size=size.tiny)
+        f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     buySideLiquidity := na
 if sellSideSweep
     if showLiquidity
-        label.new(bar_index, low, "SSL SWEEP", style=label.style_label_up, color=color.new(color.aqua, 0), textcolor=color.black, size=size.tiny)
+        sweepLabel = label.new(bar_index, low, "SSL SWEEP", style=label.style_label_up, color=color.new(color.aqua, 10), textcolor=color.black, size=size.tiny)
+        f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     sellSideLiquidity := na
 
 // -----------------------------------------------------------------------------
@@ -215,9 +237,11 @@ if supplyInvalid
 bullFvg = isConfirmed and low > high[2]
 bearFvg = isConfirmed and high < low[2]
 if showFvg and bullFvg
-    box.new(bar_index - 2, low, bar_index, high[2], extend=extend.right, bgcolor=color.new(color.green, 90), border_color=color.new(color.green, 55), text="BULL FVG", text_color=color.green, text_size=size.tiny)
+    fvgBox = box.new(bar_index - 2, low, bar_index, high[2], extend=extend.right, bgcolor=color.new(color.green, 93), border_color=color.new(color.green, 70), text="FVG+", text_color=color.new(color.green, 25), text_size=size.tiny)
+    f_store_box(fvgBoxes, fvgBox, maxFvgZones)
 if showFvg and bearFvg
-    box.new(bar_index - 2, low[2], bar_index, high, extend=extend.right, bgcolor=color.new(color.red, 90), border_color=color.new(color.red, 55), text="BEAR FVG", text_color=color.red, text_size=size.tiny)
+    fvgBox = box.new(bar_index - 2, low[2], bar_index, high, extend=extend.right, bgcolor=color.new(color.red, 93), border_color=color.new(color.red, 70), text="FVGâˆ’", text_color=color.new(color.red, 25), text_size=size.tiny)
+    f_store_box(fvgBoxes, fvgBox, maxFvgZones)
 
 var box bullishOb = na
 var box bearishOb = na
@@ -318,8 +342,16 @@ if barstate.islast and showDashboard
     table.cell(dashboard, 0, 8, "Signal Strength", text_color=color.silver)
     table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/8", text_color=f_bias_color(buyScore > sellScore ? 1 : sellScore > buyScore ? -1 : 0))
 
-if barstate.islast and symbolWarning and not isGold
-    label.new(bar_index, high + atr, "KSL is optimized for XAUUSD", style=label.style_label_down, color=color.orange, textcolor=color.black)
+var label symbolWarningLabel = na
+if barstate.islast
+    if symbolWarning and not isGold
+        if na(symbolWarningLabel)
+            symbolWarningLabel := label.new(bar_index, high + atr, "KSL is optimized for XAUUSD", style=label.style_label_down, color=color.orange, textcolor=color.black)
+        else
+            label.set_xy(symbolWarningLabel, bar_index, high + atr)
+    else if not na(symbolWarningLabel)
+        label.delete(symbolWarningLabel)
+        symbolWarningLabel := na
 
 // -----------------------------------------------------------------------------
 // Alerts
