@@ -2,11 +2,11 @@
 
 ## Purpose
 
-KSL Hybrid Pro identifies probable liquidity-seeking behavior on Gold. It is deliberately confirmation-based: higher-timeframe context narrows direction, liquidity events establish intent, and lower-timeframe structure plus candle confirmation controls timing.
+KSL Hybrid Pro identifies probable liquidity-seeking behavior on Gold. H1 is the primary decision timeframe, H4 defines the broader context, M15 refines the setup, and M5 refines execution timing. The strategy is not centered on M1 or high-frequency entries.
 
 ## Multi-timeframe context
 
-The indicator derives Daily, H4, and H1 bias from confirmed values of close, EMA 20, and EMA 50. A positive bias requires `close > EMA20 > EMA50`; a negative bias requires the reverse. Higher-timeframe requests use `barmerge.lookahead_off`.
+The indicator derives H4, H1, M15, and M5 bias from confirmed values of close, EMA 20, and EMA 50. A positive bias requires `close > EMA20 > EMA50`; a negative bias requires the reverse. H1 drives the decision, H4 supplies context, and M15/M5 refine it. Higher-timeframe requests use `barmerge.lookahead_off`.
 
 The previous completed candle's high and low are plotted for each higher timeframe:
 
@@ -62,4 +62,3 @@ Changing `Confirmed bars only` weakens these guarantees and is intended for visu
 - Broker feeds differ; equal-high tolerance and ATR zone thickness may need tuning.
 - The indicator does not calculate lot size, stop loss, take profit, or execute orders.
 - TradingView object limits require the script to retain only the most relevant live structures.
-
