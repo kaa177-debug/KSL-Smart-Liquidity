@@ -1,6 +1,6 @@
-# KSL Liquidity Entry Assistant v10
+# KSL M15 View / H1 Engine v11
 
-KSL Liquidity Entry Assistant v10 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. It focuses on liquidity sweeps, order blocks, CRT, support/resistance, and simple post-sweep BUY/SELL decisions scored from 0 to 100.
+KSL M15 View / H1 Engine v11 is designed to stay on the M15 chart while its structural analysis runs from completed H1 candles. H1 supplies support/resistance, liquidity sweeps, order blocks, breakers, and CRT. M15 is used only for entry confirmation and display.
 
 ## Features
 
