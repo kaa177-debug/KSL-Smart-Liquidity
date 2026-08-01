@@ -1,6 +1,6 @@
-# KSL Hybrid Pro
+# KSL Hybrid Pro Clean v2
 
-KSL Hybrid Pro is a TradingView Pine Script v6 confirmation indicator optimized for Gold (`XAUUSD`). It combines ICT-style liquidity, market structure, supply/demand, imbalances, multi-timeframe bias, and a scored signal model in one non-repainting overlay.
+KSL Hybrid Pro Clean v2 is a TradingView Pine Script v6 confirmation indicator optimized for Gold (`XAUUSD`). It combines ICT-style liquidity, market structure, supply/demand, imbalances, multi-timeframe bias, and a scored signal model in one non-repainting overlay.
 
 ## Features
 
