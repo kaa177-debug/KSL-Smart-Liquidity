@@ -24,6 +24,10 @@ The previous completed candle's high and low are plotted for each higher timefra
 - Two pivots within the ATR-based tolerance form EQH/EQL liquidity.
 - A wick through that level followed by a close back inside is a liquidity sweep.
 
+## H1 Candle Range Theory (CRT)
+
+CRT is evaluated only from completed H1 candles. A bullish CRT occurs when the latest closed H1 candle trades below the prior H1 low and closes back inside that prior range; the opposite prior high becomes the displayed target. A bearish CRT is the mirror condition: the latest closed H1 candle trades above the prior H1 high and closes back inside, targeting the prior low. Only the latest confirmed CRT label and target line remain on the chart.
+
 Pivot confirmation introduces an intentional delay of `swingLength` bars. This is the cost of stable, non-repainting swing identification.
 
 ## Supply, demand, and ICT objects
