@@ -20,9 +20,9 @@ $requiredPatterns = @(
     'alertcondition\(buySignal',
     'alertcondition\(sellSignal',
     'Daily High',
-    'Bullish CHoCH',
+    'CHoCH\+',
     'FRESH DEMAND',
-    'BULL FVG',
+    'FVG\+',
     'Signal Strength'
 )
 
@@ -37,4 +37,3 @@ if ($source -match 'lookahead_on') {
 }
 
 Write-Host 'KSL repository validation passed.' -ForegroundColor Green
-
