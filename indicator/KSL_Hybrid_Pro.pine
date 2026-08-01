@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Hybrid Pro Clean v2", shorttitle="KSL Clean v2", overlay=true, max_lines_count=120, max_labels_count=120, max_boxes_count=30)
+indicator("KSL Support Resistance OB v3", shorttitle="KSL S/R + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -22,11 +22,11 @@ showLiquidity = false
 showStructure = false
 showZones = false
 showKeyLevels = input.bool(true, "Latest key high and low", group=groupDisplay)
-showSweeps = input.bool(true, "Liquidity sweep labels", group=groupDisplay)
-showRejections = input.bool(true, "Confirmed rejection markers", group=groupDisplay)
-showFvg = input.bool(true, "Latest fair value gaps", group=groupDisplay)
+showSweeps = false
+showRejections = false
+showFvg = false
 showOrderBlocks = input.bool(true, "Latest order / breaker blocks", group=groupDisplay)
-showSignals = input.bool(true, "BUY / SELL signals", group=groupDisplay)
+showSignals = false
 showDashboard = input.bool(true, "Dashboard", group=groupDisplay)
 maxStructureLabels = input.int(8, "Maximum structure labels", minval=2, maxval=30, group=groupDisplay)
 maxLiquidityLabels = input.int(6, "Maximum liquidity labels", minval=2, maxval=20, group=groupDisplay)
@@ -131,7 +131,7 @@ if not na(pivotHigh)
     if not na(keyHighLine)
         line.delete(keyHighLine)
     if showKeyLevels
-        keyHighLine := line.new(bar_index - swingLength, lastSwingHigh, bar_index, lastSwingHigh, extend=extend.right, color=color.new(color.red, 15), style=line.style_dotted, width=2)
+        keyHighLine := line.new(bar_index - swingLength, lastSwingHigh, bar_index, lastSwingHigh, extend=extend.right, color=color.new(color.red, 5), style=line.style_solid, width=2)
     if not na(priorSwingHigh) and math.abs(lastSwingHigh - priorSwingHigh) <= atr[swingLength] * equalToleranceAtr
         buySideLiquidity := math.max(lastSwingHigh, priorSwingHigh)
         if showLiquidity
@@ -147,7 +147,7 @@ if not na(pivotLow)
     if not na(keyLowLine)
         line.delete(keyLowLine)
     if showKeyLevels
-        keyLowLine := line.new(bar_index - swingLength, lastSwingLow, bar_index, lastSwingLow, extend=extend.right, color=color.new(color.aqua, 15), style=line.style_dotted, width=2)
+        keyLowLine := line.new(bar_index - swingLength, lastSwingLow, bar_index, lastSwingLow, extend=extend.right, color=color.new(color.aqua, 5), style=line.style_solid, width=2)
     if not na(priorSwingLow) and math.abs(lastSwingLow - priorSwingLow) <= atr[swingLength] * equalToleranceAtr
         sellSideLiquidity := math.min(lastSwingLow, priorSwingLow)
         if showLiquidity
