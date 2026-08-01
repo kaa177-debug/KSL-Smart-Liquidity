@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL H1 Support Resistance OB v4", shorttitle="KSL H1 S/R + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
+indicator("KSL H1 Liquidity CRT OB v5", shorttitle="KSL H1 CRT + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -22,7 +22,8 @@ showLiquidity = false
 showStructure = false
 showZones = false
 showKeyLevels = input.bool(true, "Latest key high and low", group=groupDisplay)
-showSweeps = false
+showSweeps = input.bool(true, "Liquidity sweep labels", group=groupDisplay)
+showCrt = input.bool(true, "H1 Candle Range Theory (CRT)", group=groupDisplay)
 showRejections = false
 showFvg = false
 showOrderBlocks = input.bool(true, "Latest order / breaker blocks", group=groupDisplay)
@@ -83,6 +84,10 @@ f_store_box(array<box> bucket, box item, int maximum) =>
 [dailyHigh, dailyLow] = request.security(syminfo.tickerid, "D", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h4High, h4Low] = request.security(syminfo.tickerid, "240", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h1High, h1Low] = request.security(syminfo.tickerid, "60", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
+[h1ClosedHigh, h1ClosedLow, h1ClosedClose, h1ReferenceHigh, h1ReferenceLow, h1ClosedTime] = request.security(syminfo.tickerid, "60", [high[1], low[1], close[1], high[2], low[2], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+newClosedH1 = ta.change(h1ClosedTime) != 0
+bullCrt = h1ClosedLow < h1ReferenceLow and h1ClosedClose > h1ReferenceLow
+bearCrt = h1ClosedHigh > h1ReferenceHigh and h1ClosedClose < h1ReferenceHigh
 
 plot(showLiquidity ? dailyHigh : na, "Daily High", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
 plot(showLiquidity ? dailyLow : na, "Daily Low", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
@@ -121,9 +126,22 @@ var line buySideLine = na
 var line sellSideLine = na
 var line keyHighLine = na
 var line keyLowLine = na
+var line crtTargetLine = na
+var label crtLabel = na
 var array<label> structureLabels = array.new<label>()
 var array<label> liquidityLabels = array.new<label>()
 var array<box> fvgBoxes = array.new<box>()
+
+if showCrt and newClosedH1 and (bullCrt or bearCrt)
+    if not na(crtTargetLine)
+        line.delete(crtTargetLine)
+    if not na(crtLabel)
+        label.delete(crtLabel)
+    crtTarget = bullCrt ? h1ReferenceHigh : h1ReferenceLow
+    crtColor = bullCrt ? color.lime : color.red
+    crtText = bullCrt ? "BULL CRT" : "BEAR CRT"
+    crtLabel := label.new(bar_index, bullCrt ? low : high, crtText, style=bullCrt ? label.style_label_up : label.style_label_down, color=color.new(crtColor, 10), textcolor=bullCrt ? color.black : color.white, size=size.small)
+    crtTargetLine := line.new(bar_index, crtTarget, bar_index + 1, crtTarget, extend=extend.right, color=color.new(crtColor, 15), style=line.style_dashed, width=2)
 
 if not na(pivotHigh)
     priorSwingHigh := lastSwingHigh
@@ -387,3 +405,5 @@ alertcondition(sellSignal, "KSL SELL", "KSL Hybrid Pro SELL confirmation on {{ti
 alertcondition(buySideSweep or sellSideSweep, "KSL Liquidity Sweep", "KSL liquidity sweep on {{ticker}} {{interval}}")
 alertcondition(bullBos or bearBos, "KSL BOS", "KSL break of structure on {{ticker}} {{interval}}")
 alertcondition(bullChoch or bearChoch, "KSL CHoCH", "KSL change of character on {{ticker}} {{interval}}")
+alertcondition(showCrt and newClosedH1 and bullCrt, "KSL Bullish CRT", "KSL bullish H1 CRT on {{ticker}}; opposite range is the target")
+alertcondition(showCrt and newClosedH1 and bearCrt, "KSL Bearish CRT", "KSL bearish H1 CRT on {{ticker}}; opposite range is the target")
