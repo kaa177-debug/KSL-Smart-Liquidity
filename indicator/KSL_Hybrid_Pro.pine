@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Liquidity Entry Assistant v7", shorttitle="KSL Entry v7", overlay=true, max_lines_count=40, max_labels_count=60, max_boxes_count=14)
+indicator("KSL Liquidity Entry Assistant v8", shorttitle="KSL Entry v8", overlay=true, max_lines_count=40, max_labels_count=50, max_boxes_count=14)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -132,7 +132,6 @@ var line crtTargetLine = na
 var label crtLabel = na
 var array<label> structureLabels = array.new<label>()
 var array<label> liquidityLabels = array.new<label>()
-var array<label> signalLabels = array.new<label>()
 var array<box> fvgBoxes = array.new<box>()
 
 if showCrt and newClosedH1 and (bullCrt or bearCrt)
@@ -210,7 +209,7 @@ if buySideSweep
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(sellEntryBox)
         box.delete(sellEntryBox)
-    sellEntryBox := box.new(bar_index, high, bar_index + entryWindowBars, math.max(open, close), bgcolor=color.new(color.red, 88), border_color=color.new(color.red, 25), text="SELL ENTRY ZONE", text_color=color.red, text_size=size.small)
+    sellEntryBox := box.new(bar_index, high, bar_index + entryWindowBars, math.max(open, close), bgcolor=color.new(color.red, 90), border_color=color.new(color.red, 25))
     buySideLiquidity := na
 if sellSideSweep
     lastBuySweepBar := bar_index
@@ -219,7 +218,7 @@ if sellSideSweep
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(buyEntryBox)
         box.delete(buyEntryBox)
-    buyEntryBox := box.new(bar_index, math.min(open, close), bar_index + entryWindowBars, low, bgcolor=color.new(color.lime, 88), border_color=color.new(color.lime, 25), text="BUY ENTRY ZONE", text_color=color.lime, text_size=size.small)
+    buyEntryBox := box.new(bar_index, math.min(open, close), bar_index + entryWindowBars, low, bgcolor=color.new(color.lime, 90), border_color=color.new(color.lime, 25))
     sellSideLiquidity := na
 
 // -----------------------------------------------------------------------------
@@ -377,12 +376,8 @@ sellSignal = isConfirmed and inSession and cooldownReady and sellSweepWindow and
 if buySignal or sellSignal
     lastSignalBar := bar_index
 
-if showSignals and buySignal
-    signalLabel = label.new(bar_index, low, "BUY " + str.tostring(buyStrength) + "/100", style=label.style_label_up, color=color.lime, textcolor=color.black, size=size.large)
-    f_store_label(signalLabels, signalLabel, 6)
-if showSignals and sellSignal
-    signalLabel = label.new(bar_index, high, "SELL " + str.tostring(sellStrength) + "/100", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.large)
-    f_store_label(signalLabels, signalLabel, 6)
+plotshape(showSignals and buySignal, title="BUY arrow", style=shape.arrowup, location=location.belowbar, color=color.lime, size=size.small)
+plotshape(showSignals and sellSignal, title="SELL arrow", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
 plotshape(showRejections and bullRejection and not buySignal, title="Bullish rejection", text="REJECT+", style=shape.labelup, location=location.belowbar, color=color.new(color.aqua, 15), textcolor=color.black, size=size.tiny)
 plotshape(showRejections and bearRejection and not sellSignal, title="Bearish rejection", text="REJECT−", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 15), textcolor=color.black, size=size.tiny)
 
@@ -393,7 +388,9 @@ nearestSupplyDistance = f_zone_distance(close, supplyTop, supplyBottom)
 nearestDemandDistance = f_zone_distance(close, demandTop, demandBottom)
 liquidityTarget = structureTrend == 1 ? (na(buySideLiquidity) ? dailyHigh : buySideLiquidity) : (na(sellSideLiquidity) ? dailyLow : sellSideLiquidity)
 signalStrength = math.max(buyStrength, sellStrength)
-signalDirection = buyStrength > sellStrength ? "BUY" : sellStrength > buyStrength ? "SELL" : "WAIT"
+signalDirection = buySignal ? "BUY" : sellSignal ? "SELL" : "WAIT"
+signalBoxColor = buySignal ? color.new(color.lime, 20) : sellSignal ? color.new(color.red, 20) : color.new(color.gray, 70)
+signalTextColor = buySignal ? color.black : color.white
 
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
@@ -413,8 +410,8 @@ if barstate.islast and showDashboard
     table.cell(dashboard, 1, 6, na(nearestSupplyDistance) ? "N/A" : str.tostring(nearestSupplyDistance, format.mintick), text_color=color.red)
     table.cell(dashboard, 0, 7, "Nearest Demand", text_color=color.silver)
     table.cell(dashboard, 1, 7, na(nearestDemandDistance) ? "N/A" : str.tostring(nearestDemandDistance, format.mintick), text_color=color.aqua)
-    table.cell(dashboard, 0, 8, "Signal Strength", text_color=color.silver)
-    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/100", text_color=f_bias_color(buyStrength > sellStrength ? 1 : sellStrength > buyStrength ? -1 : 0))
+    table.cell(dashboard, 0, 8, "ENTRY", text_color=color.white, bgcolor=signalBoxColor)
+    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/100", text_color=signalTextColor, bgcolor=signalBoxColor)
 
 // -----------------------------------------------------------------------------
 // Alerts
