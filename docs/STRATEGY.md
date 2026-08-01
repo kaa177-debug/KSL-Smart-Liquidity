@@ -51,6 +51,10 @@ BUY and SELL are considered only during the configurable post-sweep entry window
 
 The default threshold is 65/100. The label is created only after an additional directional confirmation candle. A cooldown prevents repeated adjacent signals. The optional UTC session filter can restrict evaluation to the configured London/New York window.
 
+## Structural stop loss
+
+When a confirmed entry is active, the dashboard shows an `SL` price in the same ENTRY box. For a BUY, the base is the lowest of the sweep low, positive order-block boundary, and latest support; for a SELL, it is the highest of the sweep high, negative order-block boundary, and latest resistance. The script then adds a default buffer equal to 0.20 of the completed H1 ATR beyond that structure. The buffer is adjustable and reduces exposure to ordinary volatility, but it cannot guarantee that a future liquidity sweep will not reach the stop.
+
 ## Non-repainting policy
 
 - Signals require `barstate.isconfirmed` by default.
