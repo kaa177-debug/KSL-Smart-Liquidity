@@ -15,7 +15,7 @@ foreach ($file in $requiredFiles) {
 $source = Get-Content -LiteralPath $indicatorPath -Raw
 $requiredPatterns = @(
     '//@version=6',
-    'indicator\("KSL H1 Support Resistance OB v4"',
+    'indicator\("KSL H1 Liquidity CRT OB v5"',
     'barmerge\.lookahead_off',
     'alertcondition\(buySignal',
     'alertcondition\(sellSignal',
@@ -24,6 +24,9 @@ $requiredPatterns = @(
     'FRESH DEMAND',
     'FVG\+',
     'Signal Strength'
+    'H1 Candle Range Theory'
+    'BULL CRT'
+    'BEAR CRT'
 )
 
 foreach ($pattern in $requiredPatterns) {
