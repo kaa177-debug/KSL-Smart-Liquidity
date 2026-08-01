@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL H1 Liquidity CRT OB v5", shorttitle="KSL H1 CRT + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
+indicator("KSL Universal H1 Liquidity CRT OB v6", shorttitle="KSL Universal H1", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -8,7 +8,6 @@ indicator("KSL H1 Liquidity CRT OB v5", shorttitle="KSL H1 CRT + OB", overlay=tr
 // Inputs
 // -----------------------------------------------------------------------------
 groupCore = "Core"
-symbolWarning = input.bool(true, "Warn when chart is not Gold", group=groupCore)
 confirmedOnly = input.bool(true, "Confirmed bars only", group=groupCore)
 swingLength = input.int(5, "Swing length", minval=2, maxval=25, group=groupCore)
 equalToleranceAtr = input.float(0.12, "Equal high/low tolerance (ATR)", minval=0.01, maxval=1.0, step=0.01, group=groupCore)
@@ -46,6 +45,8 @@ atr = ta.atr(14)
 isConfirmed = not confirmedOnly or barstate.isconfirmed
 inSession = not useSessionFilter or not na(time(timeframe.period, tradeSession, "UTC"))
 isGold = str.contains(str.upper(syminfo.ticker), "XAU") or str.contains(str.upper(syminfo.description), "GOLD")
+isCrypto = syminfo.type == "crypto"
+marketProfile = isGold ? "XAU H1" : isCrypto ? "CRYPTO H1" : "H1 PRIMARY"
 
 f_bias(string tf) =>
     [tfClose, tfFast, tfSlow] = request.security(syminfo.tickerid, tf, [close, ta.ema(close, 20), ta.ema(close, 50)], barmerge.gaps_off, barmerge.lookahead_off)
@@ -368,7 +369,7 @@ signalDirection = buyScore > sellScore ? "POSITIVE" : sellScore > buyScore ? "NE
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
     table.cell(dashboard, 0, 0, "KSL HYBRID PRO", text_color=color.white, bgcolor=color.new(color.blue, 45))
-    table.cell(dashboard, 1, 0, isGold ? "H1 PRIMARY" : "CHECK SYMBOL", text_color=isGold ? color.lime : color.orange, bgcolor=color.new(color.blue, 45))
+    table.cell(dashboard, 1, 0, marketProfile, text_color=color.lime, bgcolor=color.new(color.blue, 45))
     table.cell(dashboard, 0, 1, "H4 Context", text_color=color.silver)
     table.cell(dashboard, 1, 1, f_bias_text(h4Bias), text_color=f_bias_color(h4Bias))
     table.cell(dashboard, 0, 2, "H1 Primary", text_color=color.silver)
@@ -385,17 +386,6 @@ if barstate.islast and showDashboard
     table.cell(dashboard, 1, 7, na(nearestDemandDistance) ? "N/A" : str.tostring(nearestDemandDistance, format.mintick), text_color=color.aqua)
     table.cell(dashboard, 0, 8, "Signal Strength", text_color=color.silver)
     table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/8", text_color=f_bias_color(buyScore > sellScore ? 1 : sellScore > buyScore ? -1 : 0))
-
-var label symbolWarningLabel = na
-if barstate.islast
-    if symbolWarning and not isGold
-        if na(symbolWarningLabel)
-            symbolWarningLabel := label.new(bar_index, high + atr, "KSL is optimized for XAUUSD", style=label.style_label_down, color=color.orange, textcolor=color.black)
-        else
-            label.set_xy(symbolWarningLabel, bar_index, high + atr)
-    else if not na(symbolWarningLabel)
-        label.delete(symbolWarningLabel)
-        symbolWarningLabel := na
 
 // -----------------------------------------------------------------------------
 // Alerts
