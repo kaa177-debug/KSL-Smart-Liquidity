@@ -15,7 +15,7 @@ foreach ($file in $requiredFiles) {
 $source = Get-Content -LiteralPath $indicatorPath -Raw
 $requiredPatterns = @(
     '//@version=6',
-    'indicator\("KSL Liquidity Entry Assistant v9"',
+    'indicator\("KSL Liquidity Entry Assistant v10"',
     'barmerge\.lookahead_off',
     'alertcondition\(buySignal',
     'alertcondition\(sellSignal',
@@ -23,17 +23,17 @@ $requiredPatterns = @(
     'CHoCH\+',
     'FRESH DEMAND',
     'FVG\+',
-    'Signal Strength'
+    'LIQUIDITY SWEPT'
     'H1 Candle Range Theory'
-    'BULL CRT'
-    'BEAR CRT'
+    'YES .* BULL'
+    'YES .* BEAR'
     'POSITIVE OB'
     'NEGATIVE OB'
     'POSITIVE BREAKER'
     'NEGATIVE BREAKER'
     'isCrypto'
     'CRYPTO H1'
-    'تم سحب السيولة'
+    'KSL ENTRY V10'
     'shape.arrowup'
     'shape.arrowdown'
     'buyStrength'
@@ -42,7 +42,7 @@ $requiredPatterns = @(
     'Stop buffer \(H1 ATR\)'
     'buyStopCandidate'
     'sellStopCandidate'
-    'SL N/A'
+    'STOP LOSS'
 )
 
 foreach ($pattern in $requiredPatterns) {
