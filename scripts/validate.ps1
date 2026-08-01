@@ -27,6 +27,10 @@ $requiredPatterns = @(
     'H1 Candle Range Theory'
     'BULL CRT'
     'BEAR CRT'
+    'POSITIVE OB'
+    'NEGATIVE OB'
+    'POSITIVE BREAKER'
+    'NEGATIVE BREAKER'
 )
 
 foreach ($pattern in $requiredPatterns) {
