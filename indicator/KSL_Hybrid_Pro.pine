@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Support Resistance OB v3", shorttitle="KSL S/R + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
+indicator("KSL H1 Support Resistance OB v4", shorttitle="KSL H1 S/R + OB", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -305,8 +305,12 @@ if bearObBroken
 dailyBias = f_bias("D")
 h4Bias = f_bias("240")
 h1Bias = f_bias("60")
-htfBullish = dailyBias >= 0 and h4Bias == 1 and h1Bias == 1
-htfBearish = dailyBias <= 0 and h4Bias == -1 and h1Bias == -1
+m15Bias = f_bias("15")
+m5Bias = f_bias("5")
+// H1 is the primary decision timeframe. H4 supplies context, while M15/M5
+// refine setup and timing. Daily bias is informational and does not veto H1.
+htfBullish = h4Bias >= 0 and h1Bias == 1 and m15Bias >= 0
+htfBearish = h4Bias <= 0 and h1Bias == -1 and m15Bias <= 0
 
 inDemand = not na(demandTop) and low <= demandTop and close >= demandBottom
 inSupply = not na(supplyBottom) and high >= supplyBottom and close <= supplyTop
@@ -346,15 +350,15 @@ signalDirection = buyScore > sellScore ? "POSITIVE" : sellScore > buyScore ? "NE
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
     table.cell(dashboard, 0, 0, "KSL HYBRID PRO", text_color=color.white, bgcolor=color.new(color.blue, 45))
-    table.cell(dashboard, 1, 0, isGold ? "XAU READY" : "CHECK SYMBOL", text_color=isGold ? color.lime : color.orange, bgcolor=color.new(color.blue, 45))
-    table.cell(dashboard, 0, 1, "Daily Bias", text_color=color.silver)
-    table.cell(dashboard, 1, 1, f_bias_text(dailyBias), text_color=f_bias_color(dailyBias))
-    table.cell(dashboard, 0, 2, "H4 Bias", text_color=color.silver)
-    table.cell(dashboard, 1, 2, f_bias_text(h4Bias), text_color=f_bias_color(h4Bias))
-    table.cell(dashboard, 0, 3, "H1 Bias", text_color=color.silver)
-    table.cell(dashboard, 1, 3, f_bias_text(h1Bias), text_color=f_bias_color(h1Bias))
-    table.cell(dashboard, 0, 4, "Current Trend", text_color=color.silver)
-    table.cell(dashboard, 1, 4, f_bias_text(structureTrend), text_color=f_bias_color(structureTrend))
+    table.cell(dashboard, 1, 0, isGold ? "H1 PRIMARY" : "CHECK SYMBOL", text_color=isGold ? color.lime : color.orange, bgcolor=color.new(color.blue, 45))
+    table.cell(dashboard, 0, 1, "H4 Context", text_color=color.silver)
+    table.cell(dashboard, 1, 1, f_bias_text(h4Bias), text_color=f_bias_color(h4Bias))
+    table.cell(dashboard, 0, 2, "H1 Primary", text_color=color.silver)
+    table.cell(dashboard, 1, 2, f_bias_text(h1Bias), text_color=f_bias_color(h1Bias))
+    table.cell(dashboard, 0, 3, "M15 Setup", text_color=color.silver)
+    table.cell(dashboard, 1, 3, f_bias_text(m15Bias), text_color=f_bias_color(m15Bias))
+    table.cell(dashboard, 0, 4, "M5 Timing", text_color=color.silver)
+    table.cell(dashboard, 1, 4, f_bias_text(m5Bias), text_color=f_bias_color(m5Bias))
     table.cell(dashboard, 0, 5, "Liquidity Target", text_color=color.silver)
     table.cell(dashboard, 1, 5, na(liquidityTarget) ? "N/A" : str.tostring(liquidityTarget, format.mintick), text_color=color.yellow)
     table.cell(dashboard, 0, 6, "Nearest Supply", text_color=color.silver)
