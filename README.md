@@ -16,6 +16,7 @@ KSL H1 Liquidity + CRT + Order Blocks v5 is a clean TradingView Pine Script v6 i
 - Minimal default chart: latest support, latest resistance, current order/breaker blocks, sweeps, and the latest confirmed CRT target
 - Explicit `BSL SWEEP` / `SSL SWEEP` labels without historical liquidity lines
 - Confirmed H1 Candle Range Theory events with one opposite-side CRT target line
+- Consistent `POSITIVE` / `NEGATIVE` naming for order blocks and breakers
 
 ## Installation
 
