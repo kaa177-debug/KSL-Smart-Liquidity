@@ -13,7 +13,7 @@ KSL Hybrid Pro is a TradingView Pine Script v6 confirmation indicator optimized 
 - Dashboard using `POSITIVE`, `NEGATIVE`, and `NEUTRAL`
 - Alerts for signals, sweeps, BOS, and CHoCH
 - Confirmed-bar decisions and `lookahead_off` higher-timeframe requests
-- Clean defaults that hide secondary FVG/order-block layers and cap historical objects
+- Minimal default chart: only the latest key high/low, two FVGs, current order blocks, confirmed rejections, and completed BUY/SELL signals
 
 ## Installation
 
