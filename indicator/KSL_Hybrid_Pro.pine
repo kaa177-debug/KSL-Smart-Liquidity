@@ -15,16 +15,18 @@ equalToleranceAtr = input.float(0.12, "Equal high/low tolerance (ATR)", minval=0
 zoneAtrSize = input.float(0.35, "Zone thickness (ATR)", minval=0.05, maxval=2.0, step=0.05, group=groupCore)
 
 groupDisplay = "Display"
-showLiquidity = input.bool(true, "Liquidity levels", group=groupDisplay)
-showStructure = input.bool(true, "BOS / CHoCH / MSS", group=groupDisplay)
-showZones = input.bool(true, "Supply and demand", group=groupDisplay)
-showFvg = input.bool(false, "Fair value gaps", group=groupDisplay, tooltip="Off by default for a cleaner chart")
-showOrderBlocks = input.bool(false, "Order / breaker blocks", group=groupDisplay, tooltip="Off by default for a cleaner chart")
+showLiquidity = input.bool(false, "D/H4/H1 liquidity levels", group=groupDisplay, tooltip="Optional context; off by default")
+showStructure = input.bool(false, "BOS / CHoCH / MSS labels", group=groupDisplay, tooltip="Used by the signal engine but hidden by default")
+showZones = input.bool(false, "Supply and demand", group=groupDisplay, tooltip="Used by the signal engine but hidden by default")
+showKeyLevels = input.bool(true, "Latest key high and low", group=groupDisplay)
+showRejections = input.bool(true, "Confirmed rejection markers", group=groupDisplay)
+showFvg = input.bool(true, "Latest fair value gaps", group=groupDisplay)
+showOrderBlocks = input.bool(true, "Latest order / breaker blocks", group=groupDisplay)
 showSignals = input.bool(true, "BUY / SELL signals", group=groupDisplay)
 showDashboard = input.bool(true, "Dashboard", group=groupDisplay)
 maxStructureLabels = input.int(8, "Maximum structure labels", minval=2, maxval=30, group=groupDisplay)
 maxLiquidityLabels = input.int(6, "Maximum liquidity labels", minval=2, maxval=20, group=groupDisplay)
-maxFvgZones = input.int(6, "Maximum FVG zones", minval=1, maxval=20, group=groupDisplay)
+maxFvgZones = input.int(2, "Maximum FVG zones", minval=1, maxval=6, group=groupDisplay)
 
 groupRisk = "Signal filters"
 minSignalScore = input.int(6, "Minimum signal score", minval=3, maxval=8, group=groupRisk)
@@ -113,6 +115,8 @@ var float buySideLiquidity = na
 var float sellSideLiquidity = na
 var line buySideLine = na
 var line sellSideLine = na
+var line keyHighLine = na
+var line keyLowLine = na
 var array<label> structureLabels = array.new<label>()
 var array<label> liquidityLabels = array.new<label>()
 var array<box> fvgBoxes = array.new<box>()
@@ -120,6 +124,10 @@ var array<box> fvgBoxes = array.new<box>()
 if not na(pivotHigh)
     priorSwingHigh := lastSwingHigh
     lastSwingHigh := pivotHigh
+    if not na(keyHighLine)
+        line.delete(keyHighLine)
+    if showKeyLevels
+        keyHighLine := line.new(bar_index - swingLength, lastSwingHigh, bar_index, lastSwingHigh, extend=extend.right, color=color.new(color.red, 15), style=line.style_dotted, width=2)
     if not na(priorSwingHigh) and math.abs(lastSwingHigh - priorSwingHigh) <= atr[swingLength] * equalToleranceAtr
         buySideLiquidity := math.max(lastSwingHigh, priorSwingHigh)
         if showLiquidity
@@ -132,6 +140,10 @@ if not na(pivotHigh)
 if not na(pivotLow)
     priorSwingLow := lastSwingLow
     lastSwingLow := pivotLow
+    if not na(keyLowLine)
+        line.delete(keyLowLine)
+    if showKeyLevels
+        keyLowLine := line.new(bar_index - swingLength, lastSwingLow, bar_index, lastSwingLow, extend=extend.right, color=color.new(color.aqua, 15), style=line.style_dotted, width=2)
     if not na(priorSwingLow) and math.abs(lastSwingLow - priorSwingLow) <= atr[swingLength] * equalToleranceAtr
         sellSideLiquidity := math.min(lastSwingLow, priorSwingLow)
         if showLiquidity
@@ -298,6 +310,8 @@ bullConfirmation = close > open and close > high[1]
 bearConfirmation = close < open and close < low[1]
 bullStructureConfirm = bullChoch or bullBos or structureTrend == 1
 bearStructureConfirm = bearChoch or bearBos or structureTrend == -1
+bullRejection = isConfirmed and demandEqReject and bullConfirmation
+bearRejection = isConfirmed and supplyEqReject and bearConfirmation
 
 buyScore = (htfBullish ? 2 : 0) + (sellSideSweep ? 2 : 0) + (inDemand ? 1 : 0) + (demandEqReject ? 1 : 0) + (bullStructureConfirm ? 1 : 0) + (bullConfirmation ? 1 : 0)
 sellScore = (htfBearish ? 2 : 0) + (buySideSweep ? 2 : 0) + (inSupply ? 1 : 0) + (supplyEqReject ? 1 : 0) + (bearStructureConfirm ? 1 : 0) + (bearConfirmation ? 1 : 0)
@@ -311,6 +325,8 @@ if buySignal or sellSignal
 
 plotshape(showSignals and buySignal, title="BUY", text="BUY", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, size=size.small)
 plotshape(showSignals and sellSignal, title="SELL", text="SELL", style=shape.labeldown, location=location.abovebar, color=color.red, textcolor=color.white, size=size.small)
+plotshape(showRejections and bullRejection and not buySignal, title="Bullish rejection", text="R", style=shape.diamond, location=location.belowbar, color=color.new(color.aqua, 10), textcolor=color.black, size=size.tiny)
+plotshape(showRejections and bearRejection and not sellSignal, title="Bearish rejection", text="R", style=shape.diamond, location=location.abovebar, color=color.new(color.orange, 10), textcolor=color.black, size=size.tiny)
 
 // -----------------------------------------------------------------------------
 // Dashboard
