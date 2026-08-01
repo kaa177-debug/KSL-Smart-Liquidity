@@ -13,7 +13,7 @@ KSL Hybrid Pro Clean v2 is a TradingView Pine Script v6 confirmation indicator o
 - Dashboard using `POSITIVE`, `NEGATIVE`, and `NEUTRAL`
 - Alerts for signals, sweeps, BOS, and CHoCH
 - Confirmed-bar decisions and `lookahead_off` higher-timeframe requests
-- Minimal default chart: only the latest key high/low, two FVGs, current order blocks, confirmed rejections, and completed BUY/SELL signals
+- Minimal default chart: latest key high/low, two FVGs, current order blocks, explicit BSL/SSL sweep labels, confirmed REJECT markers, and completed BUY/SELL signals
 
 ## Installation
 
