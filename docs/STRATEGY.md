@@ -2,7 +2,7 @@
 
 ## Purpose
 
-KSL Hybrid Pro identifies probable liquidity-seeking behavior on Gold and liquid cryptocurrency markets such as Bitcoin. H1 is the primary decision timeframe, H4 defines the broader context, M15 refines the setup, and M5 refines execution timing. The strategy is not centered on M1 or high-frequency entries.
+KSL Hybrid Pro identifies probable liquidity-seeking behavior on Gold and liquid cryptocurrency markets such as Bitcoin. The user keeps the chart on M15, while confirmed H1 candles drive support/resistance, liquidity sweeps, market structure, order blocks, breakers, and CRT. M15 is used only for entry confirmation and display; H4 remains directional context.
 
 ## Multi-timeframe context
 
