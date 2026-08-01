@@ -1,6 +1,6 @@
-# KSL H1 Support / Resistance + Order Blocks v4
+# KSL H1 Liquidity + CRT + Order Blocks v5
 
-KSL H1 Support / Resistance + Order Blocks v4 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows only the latest confirmed support, latest confirmed resistance, and current order/breaker blocks.
+KSL H1 Liquidity + CRT + Order Blocks v5 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows the latest confirmed support/resistance, current order/breaker blocks, liquidity sweeps, and confirmed H1 CRT events.
 
 ## Features
 
@@ -13,7 +13,9 @@ KSL H1 Support / Resistance + Order Blocks v4 is a clean TradingView Pine Script
 - Dashboard using `POSITIVE`, `NEGATIVE`, and `NEUTRAL`
 - Alerts for signals, sweeps, BOS, and CHoCH
 - Confirmed-bar decisions and `lookahead_off` higher-timeframe requests
-- Minimal default chart: latest support, latest resistance, and current order/breaker blocks only
+- Minimal default chart: latest support, latest resistance, current order/breaker blocks, sweeps, and the latest confirmed CRT target
+- Explicit `BSL SWEEP` / `SSL SWEEP` labels without historical liquidity lines
+- Confirmed H1 Candle Range Theory events with one opposite-side CRT target line
 
 ## Installation
 
