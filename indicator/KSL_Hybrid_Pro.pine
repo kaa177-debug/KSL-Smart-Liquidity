@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Universal H1 Liquidity CRT OB v6", shorttitle="KSL Universal H1", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=10)
+indicator("KSL Liquidity Entry Assistant v7", shorttitle="KSL Entry v7", overlay=true, max_lines_count=40, max_labels_count=60, max_boxes_count=14)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -26,14 +26,15 @@ showCrt = input.bool(true, "H1 Candle Range Theory (CRT)", group=groupDisplay)
 showRejections = false
 showFvg = false
 showOrderBlocks = input.bool(true, "Latest order / breaker blocks", group=groupDisplay)
-showSignals = false
+showSignals = input.bool(true, "BUY / SELL with strength", group=groupDisplay)
 showDashboard = input.bool(true, "Dashboard", group=groupDisplay)
 maxStructureLabels = input.int(8, "Maximum structure labels", minval=2, maxval=30, group=groupDisplay)
 maxLiquidityLabels = input.int(6, "Maximum liquidity labels", minval=2, maxval=20, group=groupDisplay)
 maxFvgZones = input.int(2, "Maximum FVG zones", minval=1, maxval=6, group=groupDisplay)
 
 groupRisk = "Signal filters"
-minSignalScore = input.int(6, "Minimum signal score", minval=3, maxval=8, group=groupRisk)
+minSignalStrength = input.int(65, "Minimum signal strength / 100", minval=40, maxval=90, step=5, group=groupRisk)
+entryWindowBars = input.int(8, "Entry window after sweep (bars)", minval=1, maxval=30, group=groupRisk)
 useSessionFilter = input.bool(false, "Use London + New York filter", group=groupRisk)
 tradeSession = input.session("0700-1700", "Active UTC session", group=groupRisk)
 cooldownBars = input.int(8, "Signal cooldown bars", minval=0, maxval=100, group=groupRisk)
@@ -131,6 +132,7 @@ var line crtTargetLine = na
 var label crtLabel = na
 var array<label> structureLabels = array.new<label>()
 var array<label> liquidityLabels = array.new<label>()
+var array<label> signalLabels = array.new<label>()
 var array<box> fvgBoxes = array.new<box>()
 
 if showCrt and newClosedH1 and (bullCrt or bearCrt)
@@ -197,15 +199,27 @@ if showStructure and bearBreak
 
 buySideSweep = isConfirmed and not na(buySideLiquidity) and high > buySideLiquidity and close < buySideLiquidity
 sellSideSweep = isConfirmed and not na(sellSideLiquidity) and low < sellSideLiquidity and close > sellSideLiquidity
+var int lastBuySweepBar = na
+var int lastSellSweepBar = na
+var box buyEntryBox = na
+var box sellEntryBox = na
 if buySideSweep
+    lastSellSweepBar := bar_index
     if showSweeps
-        sweepLabel = label.new(bar_index, high, "BSL SWEEP", style=label.style_label_down, color=color.new(color.orange, 5), textcolor=color.black, size=size.small)
+        sweepLabel = label.new(bar_index, high, "ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©", style=label.style_label_down, color=color.new(color.red, 5), textcolor=color.white, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
+    if not na(sellEntryBox)
+        box.delete(sellEntryBox)
+    sellEntryBox := box.new(bar_index, high, bar_index + entryWindowBars, math.max(open, close), bgcolor=color.new(color.red, 88), border_color=color.new(color.red, 25), text="SELL ENTRY ZONE", text_color=color.red, text_size=size.small)
     buySideLiquidity := na
 if sellSideSweep
+    lastBuySweepBar := bar_index
     if showSweeps
-        sweepLabel = label.new(bar_index, low, "SSL SWEEP", style=label.style_label_up, color=color.new(color.aqua, 5), textcolor=color.black, size=size.small)
+        sweepLabel = label.new(bar_index, low, "ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©", style=label.style_label_up, color=color.new(color.lime, 5), textcolor=color.black, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
+    if not na(buyEntryBox)
+        box.delete(buyEntryBox)
+    buyEntryBox := box.new(bar_index, math.min(open, close), bar_index + entryWindowBars, low, bgcolor=color.new(color.lime, 88), border_color=color.new(color.lime, 25), text="BUY ENTRY ZONE", text_color=color.lime, text_size=size.small)
     sellSideLiquidity := na
 
 // -----------------------------------------------------------------------------
@@ -342,18 +356,33 @@ bearStructureConfirm = bearChoch or bearBos or structureTrend == -1
 bullRejection = isConfirmed and demandEqReject and bullConfirmation
 bearRejection = isConfirmed and supplyEqReject and bearConfirmation
 
-buyScore = (htfBullish ? 2 : 0) + (sellSideSweep ? 2 : 0) + (inDemand ? 1 : 0) + (demandEqReject ? 1 : 0) + (bullStructureConfirm ? 1 : 0) + (bullConfirmation ? 1 : 0)
-sellScore = (htfBearish ? 2 : 0) + (buySideSweep ? 2 : 0) + (inSupply ? 1 : 0) + (supplyEqReject ? 1 : 0) + (bearStructureConfirm ? 1 : 0) + (bearConfirmation ? 1 : 0)
+buySweepWindow = not na(lastBuySweepBar) and bar_index > lastBuySweepBar and bar_index - lastBuySweepBar <= entryWindowBars
+sellSweepWindow = not na(lastSellSweepBar) and bar_index > lastSellSweepBar and bar_index - lastSellSweepBar <= entryWindowBars
+positiveObTouch = not na(bullishObTop) and low <= bullishObTop and high >= bullishObBottom
+negativeObTouch = not na(bearishObTop) and high >= bearishObBottom and low <= bearishObTop
+supportTouch = not na(lastSwingLow) and low <= lastSwingLow + atr * 0.25
+resistanceTouch = not na(lastSwingHigh) and high >= lastSwingHigh - atr * 0.25
+barsSinceBullCrt = nz(ta.barssince(newClosedH1 and bullCrt), 10000)
+barsSinceBearCrt = nz(ta.barssince(newClosedH1 and bearCrt), 10000)
+recentBullCrt = barsSinceBullCrt <= entryWindowBars
+recentBearCrt = barsSinceBearCrt <= entryWindowBars
+
+buyStrength = math.min(100, (buySweepWindow ? 30 : 0) + (h1Bias == 1 ? 20 : 0) + (h4Bias >= 0 ? 10 : 0) + (m15Bias >= 0 ? 10 : 0) + (positiveObTouch or supportTouch ? 15 : 0) + (recentBullCrt ? 15 : 0))
+sellStrength = math.min(100, (sellSweepWindow ? 30 : 0) + (h1Bias == -1 ? 20 : 0) + (h4Bias <= 0 ? 10 : 0) + (m15Bias <= 0 ? 10 : 0) + (negativeObTouch or resistanceTouch ? 15 : 0) + (recentBearCrt ? 15 : 0))
 
 var int lastSignalBar = na
 cooldownReady = na(lastSignalBar) or bar_index - lastSignalBar > cooldownBars
-buySignal = isConfirmed and inSession and cooldownReady and buyScore >= minSignalScore
-sellSignal = isConfirmed and inSession and cooldownReady and sellScore >= minSignalScore
+buySignal = isConfirmed and inSession and cooldownReady and buySweepWindow and bullConfirmation and buyStrength >= minSignalStrength
+sellSignal = isConfirmed and inSession and cooldownReady and sellSweepWindow and bearConfirmation and sellStrength >= minSignalStrength
 if buySignal or sellSignal
     lastSignalBar := bar_index
 
-plotshape(showSignals and buySignal, title="BUY", text="BUY", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, size=size.small)
-plotshape(showSignals and sellSignal, title="SELL", text="SELL", style=shape.labeldown, location=location.abovebar, color=color.red, textcolor=color.white, size=size.small)
+if showSignals and buySignal
+    signalLabel = label.new(bar_index, low, "BUY " + str.tostring(buyStrength) + "/100", style=label.style_label_up, color=color.lime, textcolor=color.black, size=size.large)
+    f_store_label(signalLabels, signalLabel, 6)
+if showSignals and sellSignal
+    signalLabel = label.new(bar_index, high, "SELL " + str.tostring(sellStrength) + "/100", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.large)
+    f_store_label(signalLabels, signalLabel, 6)
 plotshape(showRejections and bullRejection and not buySignal, title="Bullish rejection", text="REJECT+", style=shape.labelup, location=location.belowbar, color=color.new(color.aqua, 15), textcolor=color.black, size=size.tiny)
 plotshape(showRejections and bearRejection and not sellSignal, title="Bearish rejection", text="REJECTâˆ’", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 15), textcolor=color.black, size=size.tiny)
 
@@ -363,8 +392,8 @@ plotshape(showRejections and bearRejection and not sellSignal, title="Bearish re
 nearestSupplyDistance = f_zone_distance(close, supplyTop, supplyBottom)
 nearestDemandDistance = f_zone_distance(close, demandTop, demandBottom)
 liquidityTarget = structureTrend == 1 ? (na(buySideLiquidity) ? dailyHigh : buySideLiquidity) : (na(sellSideLiquidity) ? dailyLow : sellSideLiquidity)
-signalStrength = math.max(buyScore, sellScore)
-signalDirection = buyScore > sellScore ? "POSITIVE" : sellScore > buyScore ? "NEGATIVE" : "NEUTRAL"
+signalStrength = math.max(buyStrength, sellStrength)
+signalDirection = buyStrength > sellStrength ? "BUY" : sellStrength > buyStrength ? "SELL" : "WAIT"
 
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
@@ -385,7 +414,7 @@ if barstate.islast and showDashboard
     table.cell(dashboard, 0, 7, "Nearest Demand", text_color=color.silver)
     table.cell(dashboard, 1, 7, na(nearestDemandDistance) ? "N/A" : str.tostring(nearestDemandDistance, format.mintick), text_color=color.aqua)
     table.cell(dashboard, 0, 8, "Signal Strength", text_color=color.silver)
-    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/8", text_color=f_bias_color(buyScore > sellScore ? 1 : sellScore > buyScore ? -1 : 0))
+    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/100", text_color=f_bias_color(buyStrength > sellStrength ? 1 : sellStrength > buyStrength ? -1 : 0))
 
 // -----------------------------------------------------------------------------
 // Alerts
