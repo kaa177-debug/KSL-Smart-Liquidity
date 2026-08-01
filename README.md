@@ -1,6 +1,6 @@
-# KSL Support / Resistance + Order Blocks v3
+# KSL H1 Support / Resistance + Order Blocks v4
 
-KSL Support / Resistance + Order Blocks v3 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). Its default chart shows only the latest confirmed support, latest confirmed resistance, and current order/breaker blocks. The broader ICT/SMC calculations remain available internally for the dashboard and alerts.
+KSL H1 Support / Resistance + Order Blocks v4 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows only the latest confirmed support, latest confirmed resistance, and current order/breaker blocks.
 
 ## Features
 
@@ -20,7 +20,7 @@ KSL Support / Resistance + Order Blocks v3 is a clean TradingView Pine Script v6
 1. Open TradingView and select **Pine Editor**.
 2. Copy the contents of [`indicator/KSL_Hybrid_Pro.pine`](indicator/KSL_Hybrid_Pro.pine).
 3. Paste it into a new indicator, save it, and choose **Add to chart**.
-4. Use an `XAUUSD` chart. M1 or M5 is recommended for entries; the script reads D/H4/H1 context automatically.
+4. Start analysis on `XAUUSD` H1, confirm the broader context on H4, then use M15 and M5 only to refine timing.
 5. Create TradingView alerts from any `KSL ...` alert condition you need.
 
 ## Signal model
