@@ -1,6 +1,6 @@
-# KSL Liquidity Entry Assistant v9
+# KSL Liquidity Entry Assistant v10
 
-KSL Liquidity Entry Assistant v9 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. It focuses on liquidity sweeps, order blocks, CRT, support/resistance, and simple post-sweep BUY/SELL decisions scored from 0 to 100.
+KSL Liquidity Entry Assistant v10 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. It focuses on liquidity sweeps, order blocks, CRT, support/resistance, and simple post-sweep BUY/SELL decisions scored from 0 to 100.
 
 ## Features
 
@@ -17,8 +17,8 @@ KSL Liquidity Entry Assistant v9 is a clean TradingView Pine Script v6 indicator
 - Explicit `BSL SWEEP` / `SSL SWEEP` labels without historical liquidity lines
 - Confirmed H1 Candle Range Theory events with one opposite-side CRT target line
 - Consistent `POSITIVE` / `NEGATIVE` naming for order blocks and breakers
-- Arabic `تم سحب السيولة` confirmation and an unlabeled temporary entry zone after each sweep
-- Clean green/red arrows on the chart; BUY/SELL text and the score stay inside the dashboard ENTRY box
+- Small red/green liquidity dots and a green/red CRT diamond instead of chart text
+- A five-row trade dashboard showing only liquidity status, CRT status, signal/strength, and stop loss
 - Structural stop-loss price in the same ENTRY box, placed beyond the sweep, relevant order block/support-resistance, and a configurable H1 ATR volatility buffer
 
 ## Installation
