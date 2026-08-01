@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Liquidity Entry Assistant v8", shorttitle="KSL Entry v8", overlay=true, max_lines_count=40, max_labels_count=50, max_boxes_count=14)
+indicator("KSL Liquidity Entry Assistant v9", shorttitle="KSL Entry v9", overlay=true, max_lines_count=40, max_labels_count=50, max_boxes_count=14)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -35,6 +35,7 @@ maxFvgZones = input.int(2, "Maximum FVG zones", minval=1, maxval=6, group=groupD
 groupRisk = "Signal filters"
 minSignalStrength = input.int(65, "Minimum signal strength / 100", minval=40, maxval=90, step=5, group=groupRisk)
 entryWindowBars = input.int(8, "Entry window after sweep (bars)", minval=1, maxval=30, group=groupRisk)
+slBufferH1Atr = input.float(0.20, "Stop buffer (H1 ATR)", minval=0.05, maxval=1.0, step=0.05, group=groupRisk)
 useSessionFilter = input.bool(false, "Use London + New York filter", group=groupRisk)
 tradeSession = input.session("0700-1700", "Active UTC session", group=groupRisk)
 cooldownBars = input.int(8, "Signal cooldown bars", minval=0, maxval=100, group=groupRisk)
@@ -70,6 +71,22 @@ f_level_label(label current, float price, string labelText, color textColor) =>
 f_zone_distance(float price, float top, float bottom) =>
     na(top) or na(bottom) ? na : price > top ? price - top : price < bottom ? bottom - price : 0.0
 
+f_lower_level(float first, float second, float third) =>
+    float result = first
+    if not na(second)
+        result := na(result) ? second : math.min(result, second)
+    if not na(third)
+        result := na(result) ? third : math.min(result, third)
+    result
+
+f_upper_level(float first, float second, float third) =>
+    float result = first
+    if not na(second)
+        result := na(result) ? second : math.max(result, second)
+    if not na(third)
+        result := na(result) ? third : math.max(result, third)
+    result
+
 f_store_label(array<label> bucket, label item, int maximum) =>
     array.push(bucket, item)
     if array.size(bucket) > maximum
@@ -87,6 +104,7 @@ f_store_box(array<box> bucket, box item, int maximum) =>
 [h4High, h4Low] = request.security(syminfo.tickerid, "240", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h1High, h1Low] = request.security(syminfo.tickerid, "60", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h1ClosedHigh, h1ClosedLow, h1ClosedClose, h1ReferenceHigh, h1ReferenceLow, h1ClosedTime] = request.security(syminfo.tickerid, "60", [high[1], low[1], close[1], high[2], low[2], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+h1Atr = request.security(syminfo.tickerid, "60", ta.atr(14)[1], barmerge.gaps_off, barmerge.lookahead_off)
 newClosedH1 = ta.change(h1ClosedTime) != 0
 bullCrt = h1ClosedLow < h1ReferenceLow and h1ClosedClose > h1ReferenceLow
 bearCrt = h1ClosedHigh > h1ReferenceHigh and h1ClosedClose < h1ReferenceHigh
@@ -200,10 +218,13 @@ buySideSweep = isConfirmed and not na(buySideLiquidity) and high > buySideLiquid
 sellSideSweep = isConfirmed and not na(sellSideLiquidity) and low < sellSideLiquidity and close > sellSideLiquidity
 var int lastBuySweepBar = na
 var int lastSellSweepBar = na
+var float lastBuySweepLow = na
+var float lastSellSweepHigh = na
 var box buyEntryBox = na
 var box sellEntryBox = na
 if buySideSweep
     lastSellSweepBar := bar_index
+    lastSellSweepHigh := high
     if showSweeps
         sweepLabel = label.new(bar_index, high, "تم سحب السيولة", style=label.style_label_down, color=color.new(color.red, 5), textcolor=color.white, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
@@ -213,6 +234,7 @@ if buySideSweep
     buySideLiquidity := na
 if sellSideSweep
     lastBuySweepBar := bar_index
+    lastBuySweepLow := low
     if showSweeps
         sweepLabel = label.new(bar_index, low, "تم سحب السيولة", style=label.style_label_up, color=color.new(color.lime, 5), textcolor=color.black, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
@@ -368,13 +390,31 @@ recentBearCrt = barsSinceBearCrt <= entryWindowBars
 
 buyStrength = math.min(100, (buySweepWindow ? 30 : 0) + (h1Bias == 1 ? 20 : 0) + (h4Bias >= 0 ? 10 : 0) + (m15Bias >= 0 ? 10 : 0) + (positiveObTouch or supportTouch ? 15 : 0) + (recentBullCrt ? 15 : 0))
 sellStrength = math.min(100, (sellSweepWindow ? 30 : 0) + (h1Bias == -1 ? 20 : 0) + (h4Bias <= 0 ? 10 : 0) + (m15Bias <= 0 ? 10 : 0) + (negativeObTouch or resistanceTouch ? 15 : 0) + (recentBearCrt ? 15 : 0))
+buyStopBase = f_lower_level(lastBuySweepLow, bullishObBottom, lastSwingLow)
+sellStopBase = f_upper_level(lastSellSweepHigh, bearishObTop, lastSwingHigh)
+buyStopCandidate = na(buyStopBase) ? na : buyStopBase - h1Atr * slBufferH1Atr
+sellStopCandidate = na(sellStopBase) ? na : sellStopBase + h1Atr * slBufferH1Atr
 
 var int lastSignalBar = na
+var int activeEntryBar = na
+var string activeEntryDirection = "WAIT"
+var int activeEntryStrength = 0
+var float activeEntryStop = na
 cooldownReady = na(lastSignalBar) or bar_index - lastSignalBar > cooldownBars
 buySignal = isConfirmed and inSession and cooldownReady and buySweepWindow and bullConfirmation and buyStrength >= minSignalStrength
 sellSignal = isConfirmed and inSession and cooldownReady and sellSweepWindow and bearConfirmation and sellStrength >= minSignalStrength
-if buySignal or sellSignal
+if buySignal
     lastSignalBar := bar_index
+    activeEntryBar := bar_index
+    activeEntryDirection := "BUY"
+    activeEntryStrength := buyStrength
+    activeEntryStop := buyStopCandidate
+if sellSignal
+    lastSignalBar := bar_index
+    activeEntryBar := bar_index
+    activeEntryDirection := "SELL"
+    activeEntryStrength := sellStrength
+    activeEntryStop := sellStopCandidate
 
 plotshape(showSignals and buySignal, title="BUY arrow", style=shape.arrowup, location=location.belowbar, color=color.lime, size=size.small)
 plotshape(showSignals and sellSignal, title="SELL arrow", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
@@ -387,10 +427,13 @@ plotshape(showRejections and bearRejection and not sellSignal, title="Bearish re
 nearestSupplyDistance = f_zone_distance(close, supplyTop, supplyBottom)
 nearestDemandDistance = f_zone_distance(close, demandTop, demandBottom)
 liquidityTarget = structureTrend == 1 ? (na(buySideLiquidity) ? dailyHigh : buySideLiquidity) : (na(sellSideLiquidity) ? dailyLow : sellSideLiquidity)
-signalStrength = math.max(buyStrength, sellStrength)
-signalDirection = buySignal ? "BUY" : sellSignal ? "SELL" : "WAIT"
-signalBoxColor = buySignal ? color.new(color.lime, 20) : sellSignal ? color.new(color.red, 20) : color.new(color.gray, 70)
-signalTextColor = buySignal ? color.black : color.white
+activeEntry = not na(activeEntryBar) and bar_index - activeEntryBar <= entryWindowBars
+signalStrength = activeEntry ? activeEntryStrength : math.max(buyStrength, sellStrength)
+signalDirection = activeEntry ? activeEntryDirection : "WAIT"
+signalStop = activeEntry ? activeEntryStop : na
+signalBoxColor = signalDirection == "BUY" ? color.new(color.lime, 20) : signalDirection == "SELL" ? color.new(color.red, 20) : color.new(color.gray, 70)
+signalTextColor = signalDirection == "BUY" ? color.black : color.white
+signalStopText = na(signalStop) ? "SL N/A" : "SL " + str.tostring(signalStop, format.mintick)
 
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
@@ -411,7 +454,7 @@ if barstate.islast and showDashboard
     table.cell(dashboard, 0, 7, "Nearest Demand", text_color=color.silver)
     table.cell(dashboard, 1, 7, na(nearestDemandDistance) ? "N/A" : str.tostring(nearestDemandDistance, format.mintick), text_color=color.aqua)
     table.cell(dashboard, 0, 8, "ENTRY", text_color=color.white, bgcolor=signalBoxColor)
-    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/100", text_color=signalTextColor, bgcolor=signalBoxColor)
+    table.cell(dashboard, 1, 8, signalDirection + " " + str.tostring(signalStrength) + "/100\n" + signalStopText, text_color=signalTextColor, bgcolor=signalBoxColor)
 
 // -----------------------------------------------------------------------------
 // Alerts
