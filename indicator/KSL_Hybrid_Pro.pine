@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Liquidity Entry Assistant v10", shorttitle="KSL Entry v10", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=14)
+indicator("KSL M15 View H1 Engine v11", shorttitle="KSL M15/H1 v11", overlay=true, max_lines_count=40, max_labels_count=40, max_boxes_count=14)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -48,7 +48,8 @@ isConfirmed = not confirmedOnly or barstate.isconfirmed
 inSession = not useSessionFilter or not na(time(timeframe.period, tradeSession, "UTC"))
 isGold = str.contains(str.upper(syminfo.ticker), "XAU") or str.contains(str.upper(syminfo.description), "GOLD")
 isCrypto = syminfo.type == "crypto"
-marketProfile = isGold ? "XAU H1" : isCrypto ? "CRYPTO H1" : "H1 PRIMARY"
+isM15Chart = timeframe.isminutes and timeframe.multiplier == 15
+marketProfile = isM15Chart ? "M15 VIEW / H1" : "USE M15"
 
 f_bias(string tf) =>
     [tfClose, tfFast, tfSlow] = request.security(syminfo.tickerid, tf, [close, ta.ema(close, 20), ta.ema(close, 50)], barmerge.gaps_off, barmerge.lookahead_off)
@@ -103,7 +104,7 @@ f_store_box(array<box> bucket, box item, int maximum) =>
 [dailyHigh, dailyLow] = request.security(syminfo.tickerid, "D", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h4High, h4Low] = request.security(syminfo.tickerid, "240", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
 [h1High, h1Low] = request.security(syminfo.tickerid, "60", [high[1], low[1]], barmerge.gaps_off, barmerge.lookahead_off)
-[h1ClosedHigh, h1ClosedLow, h1ClosedClose, h1ReferenceHigh, h1ReferenceLow, h1ClosedTime] = request.security(syminfo.tickerid, "60", [high[1], low[1], close[1], high[2], low[2], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+[h1ClosedOpen, h1ClosedHigh, h1ClosedLow, h1ClosedClose, h1ReferenceOpen, h1ReferenceHigh, h1ReferenceLow, h1ReferenceClose, h1ClosedTime] = request.security(syminfo.tickerid, "60", [open[1], high[1], low[1], close[1], open[2], high[2], low[2], close[2], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
 h1Atr = request.security(syminfo.tickerid, "60", ta.atr(14)[1], barmerge.gaps_off, barmerge.lookahead_off)
 newClosedH1 = ta.change(h1ClosedTime) != 0
 bullCrt = h1ClosedLow < h1ReferenceLow and h1ClosedClose > h1ReferenceLow
@@ -133,8 +134,10 @@ if showLiquidity
 // -----------------------------------------------------------------------------
 // Market structure and equal-high/equal-low liquidity
 // -----------------------------------------------------------------------------
-pivotHigh = ta.pivothigh(high, swingLength, swingLength)
-pivotLow = ta.pivotlow(low, swingLength, swingLength)
+pivotHigh = request.security(syminfo.tickerid, "60", ta.pivothigh(high, swingLength, swingLength), barmerge.gaps_off, barmerge.lookahead_off)
+pivotLow = request.security(syminfo.tickerid, "60", ta.pivotlow(low, swingLength, swingLength), barmerge.gaps_off, barmerge.lookahead_off)
+newH1PivotHigh = not na(pivotHigh) and (na(pivotHigh[1]) or pivotHigh != pivotHigh[1])
+newH1PivotLow = not na(pivotLow) and (na(pivotLow[1]) or pivotLow != pivotLow[1])
 var float lastSwingHigh = na
 var float priorSwingHigh = na
 var float lastSwingLow = na
@@ -162,14 +165,14 @@ if showCrt and newClosedH1 and (bullCrt or bearCrt)
     crtLabel := label.new(bar_index, bullCrt ? low : high, "◆", style=label.style_none, color=color.new(color.black, 100), textcolor=crtColor, size=size.normal)
     crtTargetLine := line.new(bar_index, crtTarget, bar_index + 1, crtTarget, extend=extend.right, color=color.new(crtColor, 15), style=line.style_dashed, width=2)
 
-if not na(pivotHigh)
+if newH1PivotHigh
     priorSwingHigh := lastSwingHigh
     lastSwingHigh := pivotHigh
     if not na(keyHighLine)
         line.delete(keyHighLine)
     if showKeyLevels
         keyHighLine := line.new(bar_index - swingLength, lastSwingHigh, bar_index, lastSwingHigh, extend=extend.right, color=color.new(color.red, 5), style=line.style_solid, width=2)
-    if not na(priorSwingHigh) and math.abs(lastSwingHigh - priorSwingHigh) <= atr[swingLength] * equalToleranceAtr
+    if not na(priorSwingHigh) and math.abs(lastSwingHigh - priorSwingHigh) <= h1Atr * equalToleranceAtr
         buySideLiquidity := math.max(lastSwingHigh, priorSwingHigh)
         if showLiquidity
             if not na(buySideLine)
@@ -178,14 +181,14 @@ if not na(pivotHigh)
             liquidityLabel = label.new(bar_index - swingLength, buySideLiquidity, "BSL / EQH", style=label.style_label_down, color=color.new(color.red, 70), textcolor=color.white, size=size.tiny)
             f_store_label(liquidityLabels, liquidityLabel, maxLiquidityLabels)
 
-if not na(pivotLow)
+if newH1PivotLow
     priorSwingLow := lastSwingLow
     lastSwingLow := pivotLow
     if not na(keyLowLine)
         line.delete(keyLowLine)
     if showKeyLevels
         keyLowLine := line.new(bar_index - swingLength, lastSwingLow, bar_index, lastSwingLow, extend=extend.right, color=color.new(color.aqua, 5), style=line.style_solid, width=2)
-    if not na(priorSwingLow) and math.abs(lastSwingLow - priorSwingLow) <= atr[swingLength] * equalToleranceAtr
+    if not na(priorSwingLow) and math.abs(lastSwingLow - priorSwingLow) <= h1Atr * equalToleranceAtr
         sellSideLiquidity := math.min(lastSwingLow, priorSwingLow)
         if showLiquidity
             if not na(sellSideLine)
@@ -194,8 +197,8 @@ if not na(pivotLow)
             liquidityLabel = label.new(bar_index - swingLength, sellSideLiquidity, "SSL / EQL", style=label.style_label_up, color=color.new(color.aqua, 70), textcolor=color.black, size=size.tiny)
             f_store_label(liquidityLabels, liquidityLabel, maxLiquidityLabels)
 
-bullBreak = isConfirmed and not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
-bearBreak = isConfirmed and not na(lastSwingLow) and ta.crossunder(close, lastSwingLow)
+bullBreak = newClosedH1 and not na(lastSwingHigh) and h1ClosedClose > lastSwingHigh and h1ClosedClose[1] <= lastSwingHigh
+bearBreak = newClosedH1 and not na(lastSwingLow) and h1ClosedClose < lastSwingLow and h1ClosedClose[1] >= lastSwingLow
 bullChoch = bullBreak and structureTrend == -1
 bearChoch = bearBreak and structureTrend == 1
 bullBos = bullBreak and structureTrend != -1
@@ -213,8 +216,8 @@ if showStructure and bearBreak
     structureLabel = label.new(bar_index, high, bearChoch ? "CHoCH−" : "BOS−", style=label.style_label_down, color=color.new(color.red, 25), textcolor=color.white, size=size.tiny)
     f_store_label(structureLabels, structureLabel, maxStructureLabels)
 
-buySideSweep = isConfirmed and not na(buySideLiquidity) and high > buySideLiquidity and close < buySideLiquidity
-sellSideSweep = isConfirmed and not na(sellSideLiquidity) and low < sellSideLiquidity and close > sellSideLiquidity
+buySideSweep = newClosedH1 and not na(buySideLiquidity) and h1ClosedHigh > buySideLiquidity and h1ClosedClose < buySideLiquidity
+sellSideSweep = newClosedH1 and not na(sellSideLiquidity) and h1ClosedLow < sellSideLiquidity and h1ClosedClose > sellSideLiquidity
 var int lastBuySweepBar = na
 var int lastSellSweepBar = na
 var float lastBuySweepLow = na
@@ -223,23 +226,23 @@ var box buyEntryBox = na
 var box sellEntryBox = na
 if buySideSweep
     lastSellSweepBar := bar_index
-    lastSellSweepHigh := high
+    lastSellSweepHigh := h1ClosedHigh
     if showSweeps
         sweepLabel = label.new(bar_index, high, "●", style=label.style_none, color=color.new(color.black, 100), textcolor=color.red, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(sellEntryBox)
         box.delete(sellEntryBox)
-    sellEntryBox := box.new(bar_index, high, bar_index + entryWindowBars, math.max(open, close), bgcolor=color.new(color.red, 90), border_color=color.new(color.red, 25))
+    sellEntryBox := box.new(bar_index, h1ClosedHigh, bar_index + entryWindowBars, math.max(h1ClosedOpen, h1ClosedClose), bgcolor=color.new(color.red, 90), border_color=color.new(color.red, 25))
     buySideLiquidity := na
 if sellSideSweep
     lastBuySweepBar := bar_index
-    lastBuySweepLow := low
+    lastBuySweepLow := h1ClosedLow
     if showSweeps
         sweepLabel = label.new(bar_index, low, "●", style=label.style_none, color=color.new(color.black, 100), textcolor=color.lime, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(buyEntryBox)
         box.delete(buyEntryBox)
-    buyEntryBox := box.new(bar_index, math.min(open, close), bar_index + entryWindowBars, low, bgcolor=color.new(color.lime, 90), border_color=color.new(color.lime, 25))
+    buyEntryBox := box.new(bar_index, math.min(h1ClosedOpen, h1ClosedClose), bar_index + entryWindowBars, h1ClosedLow, bgcolor=color.new(color.lime, 90), border_color=color.new(color.lime, 25))
     sellSideLiquidity := na
 
 // -----------------------------------------------------------------------------
@@ -254,9 +257,9 @@ var box supplyBox = na
 var line demandEq = na
 var line supplyEq = na
 
-if not na(pivotLow)
+if newH1PivotLow
     demandBottom := pivotLow
-    demandTop := pivotLow + atr[swingLength] * zoneAtrSize
+    demandTop := pivotLow + h1Atr * zoneAtrSize
     if not na(demandBox)
         box.delete(demandBox)
     if not na(demandEq)
@@ -265,9 +268,9 @@ if not na(pivotLow)
         demandBox := box.new(bar_index - swingLength, demandTop, bar_index, demandBottom, extend=extend.right, bgcolor=color.new(color.teal, 86), border_color=color.new(color.teal, 25), text="FRESH DEMAND", text_color=color.teal, text_size=size.tiny)
         demandEq := line.new(bar_index - swingLength, math.avg(demandTop, demandBottom), bar_index, math.avg(demandTop, demandBottom), extend=extend.right, color=color.new(color.teal, 35), style=line.style_dotted)
 
-if not na(pivotHigh)
+if newH1PivotHigh
     supplyTop := pivotHigh
-    supplyBottom := pivotHigh - atr[swingLength] * zoneAtrSize
+    supplyBottom := pivotHigh - h1Atr * zoneAtrSize
     if not na(supplyBox)
         box.delete(supplyBox)
     if not na(supplyEq)
@@ -319,24 +322,24 @@ var float bullishObBottom = na
 var float bearishObTop = na
 var float bearishObBottom = na
 
-if bullBreak and close[1] < open[1]
-    bullishObTop := high[1]
-    bullishObBottom := low[1]
+if bullBreak and h1ReferenceClose < h1ReferenceOpen
+    bullishObTop := h1ReferenceHigh
+    bullishObBottom := h1ReferenceLow
     if not na(bullishOb)
         box.delete(bullishOb)
     if showOrderBlocks
         bullishOb := box.new(bar_index - 1, bullishObTop, bar_index, bullishObBottom, extend=extend.right, bgcolor=color.new(color.blue, 88), border_color=color.new(color.blue, 35), text="POSITIVE OB", text_color=color.blue, text_size=size.tiny)
 
-if bearBreak and close[1] > open[1]
-    bearishObTop := high[1]
-    bearishObBottom := low[1]
+if bearBreak and h1ReferenceClose > h1ReferenceOpen
+    bearishObTop := h1ReferenceHigh
+    bearishObBottom := h1ReferenceLow
     if not na(bearishOb)
         box.delete(bearishOb)
     if showOrderBlocks
         bearishOb := box.new(bar_index - 1, bearishObTop, bar_index, bearishObBottom, extend=extend.right, bgcolor=color.new(color.purple, 88), border_color=color.new(color.purple, 35), text="NEGATIVE OB", text_color=color.purple, text_size=size.tiny)
 
-bullObBroken = not na(bullishObBottom) and close < bullishObBottom
-bearObBroken = not na(bearishObTop) and close > bearishObTop
+bullObBroken = newClosedH1 and not na(bullishObBottom) and h1ClosedClose < bullishObBottom
+bearObBroken = newClosedH1 and not na(bearishObTop) and h1ClosedClose > bearishObTop
 if bullObBroken
     if not na(bullishOb)
         box.set_text(bullishOb, "NEGATIVE BREAKER")
@@ -437,7 +440,7 @@ crtStatusColor = recentBullCrt ? color.lime : recentBearCrt ? color.red : color.
 
 var table dashboard = table.new(position.top_right, 2, 5, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
-    table.cell(dashboard, 0, 0, "KSL ENTRY V10", text_color=color.white, bgcolor=color.new(color.blue, 45))
+    table.cell(dashboard, 0, 0, "KSL ENTRY V11", text_color=color.white, bgcolor=color.new(color.blue, 45))
     table.cell(dashboard, 1, 0, marketProfile, text_color=color.lime, bgcolor=color.new(color.blue, 45))
     table.cell(dashboard, 0, 1, "LIQUIDITY SWEPT", text_color=color.silver)
     table.cell(dashboard, 1, 1, liquidityStatus, text_color=liquidityColor)
