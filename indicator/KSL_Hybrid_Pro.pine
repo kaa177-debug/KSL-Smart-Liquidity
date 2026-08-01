@@ -290,7 +290,7 @@ if bullBreak and close[1] < open[1]
     if not na(bullishOb)
         box.delete(bullishOb)
     if showOrderBlocks
-        bullishOb := box.new(bar_index - 1, bullishObTop, bar_index, bullishObBottom, extend=extend.right, bgcolor=color.new(color.blue, 88), border_color=color.new(color.blue, 35), text="BULL OB", text_color=color.blue, text_size=size.tiny)
+        bullishOb := box.new(bar_index - 1, bullishObTop, bar_index, bullishObBottom, extend=extend.right, bgcolor=color.new(color.blue, 88), border_color=color.new(color.blue, 35), text="POSITIVE OB", text_color=color.blue, text_size=size.tiny)
 
 if bearBreak and close[1] > open[1]
     bearishObTop := high[1]
@@ -298,20 +298,20 @@ if bearBreak and close[1] > open[1]
     if not na(bearishOb)
         box.delete(bearishOb)
     if showOrderBlocks
-        bearishOb := box.new(bar_index - 1, bearishObTop, bar_index, bearishObBottom, extend=extend.right, bgcolor=color.new(color.purple, 88), border_color=color.new(color.purple, 35), text="BEAR OB", text_color=color.purple, text_size=size.tiny)
+        bearishOb := box.new(bar_index - 1, bearishObTop, bar_index, bearishObBottom, extend=extend.right, bgcolor=color.new(color.purple, 88), border_color=color.new(color.purple, 35), text="NEGATIVE OB", text_color=color.purple, text_size=size.tiny)
 
 bullObBroken = not na(bullishObBottom) and close < bullishObBottom
 bearObBroken = not na(bearishObTop) and close > bearishObTop
 if bullObBroken
     if not na(bullishOb)
-        box.set_text(bullishOb, "BEAR BREAKER")
+        box.set_text(bullishOb, "NEGATIVE BREAKER")
         box.set_bgcolor(bullishOb, color.new(color.red, 92))
         box.set_border_color(bullishOb, color.new(color.red, 35))
     bullishObTop := na
     bullishObBottom := na
 if bearObBroken
     if not na(bearishOb)
-        box.set_text(bearishOb, "BULL BREAKER")
+        box.set_text(bearishOb, "POSITIVE BREAKER")
         box.set_bgcolor(bearishOb, color.new(color.lime, 92))
         box.set_border_color(bearishOb, color.new(color.lime, 35))
     bearishObTop := na
