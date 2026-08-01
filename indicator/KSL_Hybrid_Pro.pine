@@ -91,12 +91,12 @@ newClosedH1 = ta.change(h1ClosedTime) != 0
 bullCrt = h1ClosedLow < h1ReferenceLow and h1ClosedClose > h1ReferenceLow
 bearCrt = h1ClosedHigh > h1ReferenceHigh and h1ClosedClose < h1ReferenceHigh
 
-plot(showLiquidity ? dailyHigh : na, "Daily High", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
-plot(showLiquidity ? dailyLow : na, "Daily Low", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline)
-plot(showLiquidity ? h4High : na, "H4 High", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h4Low : na, "H4 Low", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h1High : na, "H1 High", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline)
-plot(showLiquidity ? h1Low : na, "H1 Low", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline)
+plot(showLiquidity ? dailyHigh : na, "Daily High", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline, display=display.none)
+plot(showLiquidity ? dailyLow : na, "Daily Low", color=color.new(color.white, 15), linewidth=2, style=plot.style_stepline, display=display.none)
+plot(showLiquidity ? h4High : na, "H4 High", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline, display=display.none)
+plot(showLiquidity ? h4Low : na, "H4 Low", color=color.new(color.yellow, 25), linewidth=1, style=plot.style_stepline, display=display.none)
+plot(showLiquidity ? h1High : na, "H1 High", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline, display=display.none)
+plot(showLiquidity ? h1Low : na, "H1 Low", color=color.new(color.aqua, 30), linewidth=1, style=plot.style_stepline, display=display.none)
 
 var label dailyHighLabel = na
 var label dailyLowLabel = na
@@ -194,7 +194,7 @@ if showStructure and bullBreak
     structureLabel = label.new(bar_index, low, bullChoch ? "CHoCH+" : "BOS+", style=label.style_label_up, color=color.new(color.lime, 25), textcolor=color.black, size=size.tiny)
     f_store_label(structureLabels, structureLabel, maxStructureLabels)
 if showStructure and bearBreak
-    structureLabel = label.new(bar_index, high, bearChoch ? "CHoCHâˆ’" : "BOSâˆ’", style=label.style_label_down, color=color.new(color.red, 25), textcolor=color.white, size=size.tiny)
+    structureLabel = label.new(bar_index, high, bearChoch ? "CHoCH−" : "BOS−", style=label.style_label_down, color=color.new(color.red, 25), textcolor=color.white, size=size.tiny)
     f_store_label(structureLabels, structureLabel, maxStructureLabels)
 
 buySideSweep = isConfirmed and not na(buySideLiquidity) and high > buySideLiquidity and close < buySideLiquidity
@@ -206,7 +206,7 @@ var box sellEntryBox = na
 if buySideSweep
     lastSellSweepBar := bar_index
     if showSweeps
-        sweepLabel = label.new(bar_index, high, "ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©", style=label.style_label_down, color=color.new(color.red, 5), textcolor=color.white, size=size.small)
+        sweepLabel = label.new(bar_index, high, "تم سحب السيولة", style=label.style_label_down, color=color.new(color.red, 5), textcolor=color.white, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(sellEntryBox)
         box.delete(sellEntryBox)
@@ -215,7 +215,7 @@ if buySideSweep
 if sellSideSweep
     lastBuySweepBar := bar_index
     if showSweeps
-        sweepLabel = label.new(bar_index, low, "ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©", style=label.style_label_up, color=color.new(color.lime, 5), textcolor=color.black, size=size.small)
+        sweepLabel = label.new(bar_index, low, "تم سحب السيولة", style=label.style_label_up, color=color.new(color.lime, 5), textcolor=color.black, size=size.small)
         f_store_label(liquidityLabels, sweepLabel, maxLiquidityLabels)
     if not na(buyEntryBox)
         box.delete(buyEntryBox)
@@ -289,7 +289,7 @@ if showFvg and bullFvg
     fvgBox = box.new(bar_index - 2, low, bar_index, high[2], extend=extend.right, bgcolor=color.new(color.green, 93), border_color=color.new(color.green, 70), text="FVG+", text_color=color.new(color.green, 25), text_size=size.tiny)
     f_store_box(fvgBoxes, fvgBox, maxFvgZones)
 if showFvg and bearFvg
-    fvgBox = box.new(bar_index - 2, low[2], bar_index, high, extend=extend.right, bgcolor=color.new(color.red, 93), border_color=color.new(color.red, 70), text="FVGâˆ’", text_color=color.new(color.red, 25), text_size=size.tiny)
+    fvgBox = box.new(bar_index - 2, low[2], bar_index, high, extend=extend.right, bgcolor=color.new(color.red, 93), border_color=color.new(color.red, 70), text="FVG−", text_color=color.new(color.red, 25), text_size=size.tiny)
     f_store_box(fvgBoxes, fvgBox, maxFvgZones)
 
 var box bullishOb = na
@@ -384,7 +384,7 @@ if showSignals and sellSignal
     signalLabel = label.new(bar_index, high, "SELL " + str.tostring(sellStrength) + "/100", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.large)
     f_store_label(signalLabels, signalLabel, 6)
 plotshape(showRejections and bullRejection and not buySignal, title="Bullish rejection", text="REJECT+", style=shape.labelup, location=location.belowbar, color=color.new(color.aqua, 15), textcolor=color.black, size=size.tiny)
-plotshape(showRejections and bearRejection and not sellSignal, title="Bearish rejection", text="REJECTâˆ’", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 15), textcolor=color.black, size=size.tiny)
+plotshape(showRejections and bearRejection and not sellSignal, title="Bearish rejection", text="REJECT−", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 15), textcolor=color.black, size=size.tiny)
 
 // -----------------------------------------------------------------------------
 // Dashboard
@@ -397,7 +397,7 @@ signalDirection = buyStrength > sellStrength ? "BUY" : sellStrength > buyStrengt
 
 var table dashboard = table.new(position.top_right, 2, 9, border_width=1, border_color=color.new(color.gray, 65), bgcolor=color.new(color.black, 12))
 if barstate.islast and showDashboard
-    table.cell(dashboard, 0, 0, "KSL HYBRID PRO", text_color=color.white, bgcolor=color.new(color.blue, 45))
+    table.cell(dashboard, 0, 0, "KSL ENTRY V7", text_color=color.white, bgcolor=color.new(color.blue, 45))
     table.cell(dashboard, 1, 0, marketProfile, text_color=color.lime, bgcolor=color.new(color.blue, 45))
     table.cell(dashboard, 0, 1, "H4 Context", text_color=color.silver)
     table.cell(dashboard, 1, 1, f_bias_text(h4Bias), text_color=f_bias_color(h4Bias))
