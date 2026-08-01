@@ -1,6 +1,6 @@
-# KSL Hybrid Pro Clean v2
+# KSL Support / Resistance + Order Blocks v3
 
-KSL Hybrid Pro Clean v2 is a TradingView Pine Script v6 confirmation indicator optimized for Gold (`XAUUSD`). It combines ICT-style liquidity, market structure, supply/demand, imbalances, multi-timeframe bias, and a scored signal model in one non-repainting overlay.
+KSL Support / Resistance + Order Blocks v3 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). Its default chart shows only the latest confirmed support, latest confirmed resistance, and current order/breaker blocks. The broader ICT/SMC calculations remain available internally for the dashboard and alerts.
 
 ## Features
 
@@ -9,11 +9,11 @@ KSL Hybrid Pro Clean v2 is a TradingView Pine Script v6 confirmation indicator o
 - Equal highs/lows and buy-side/sell-side liquidity sweeps
 - Fresh and mitigated supply/demand zones with 50% equilibrium
 - Fair Value Gaps, Order Blocks, Breaker Blocks, and mitigation state
-- Confirmed BUY/SELL signals with an 8-point confluence score
+- Internal 8-point confluence engine retained for dashboard context and alerts
 - Dashboard using `POSITIVE`, `NEGATIVE`, and `NEUTRAL`
 - Alerts for signals, sweeps, BOS, and CHoCH
 - Confirmed-bar decisions and `lookahead_off` higher-timeframe requests
-- Minimal default chart: latest key high/low, two FVGs, current order blocks, explicit BSL/SSL sweep labels, confirmed REJECT markers, and completed BUY/SELL signals
+- Minimal default chart: latest support, latest resistance, and current order/breaker blocks only
 
 ## Installation
 
