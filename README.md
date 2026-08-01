@@ -1,6 +1,6 @@
-# KSL H1 Liquidity + CRT + Order Blocks v5
+# KSL Universal H1 Liquidity + CRT + Order Blocks v6
 
-KSL H1 Liquidity + CRT + Order Blocks v5 is a clean TradingView Pine Script v6 indicator optimized for Gold (`XAUUSD`). H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows the latest confirmed support/resistance, current order/breaker blocks, liquidity sweeps, and confirmed H1 CRT events.
+KSL Universal H1 Liquidity + CRT + Order Blocks v6 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows the latest confirmed support/resistance, current order/breaker blocks, liquidity sweeps, and confirmed H1 CRT events.
 
 ## Features
 
@@ -23,7 +23,7 @@ KSL H1 Liquidity + CRT + Order Blocks v5 is a clean TradingView Pine Script v6 i
 1. Open TradingView and select **Pine Editor**.
 2. Copy the contents of [`indicator/KSL_Hybrid_Pro.pine`](indicator/KSL_Hybrid_Pro.pine).
 3. Paste it into a new indicator, save it, and choose **Add to chart**.
-4. Start analysis on `XAUUSD` H1, confirm the broader context on H4, then use M15 and M5 only to refine timing.
+4. Open `XAUUSD`, `BTCUSD`, or `BTCUSDT` on H1, confirm the broader context on H4, then use M15 and M5 only to refine timing.
 5. Create TradingView alerts from any `KSL ...` alert condition you need.
 
 ## Signal model
