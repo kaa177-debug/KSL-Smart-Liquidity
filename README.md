@@ -1,6 +1,6 @@
-# KSL Universal H1 Liquidity + CRT + Order Blocks v6
+# KSL Liquidity Entry Assistant v7
 
-KSL Universal H1 Liquidity + CRT + Order Blocks v6 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. H1 is the primary decision timeframe, H4 provides context, and M15/M5 refine setup and timing. Its default chart shows the latest confirmed support/resistance, current order/breaker blocks, liquidity sweeps, and confirmed H1 CRT events.
+KSL Liquidity Entry Assistant v7 is a clean TradingView Pine Script v6 indicator for Gold (`XAUUSD`) and cryptocurrency markets such as `BTCUSD` / `BTCUSDT`. It focuses on liquidity sweeps, order blocks, CRT, support/resistance, and simple post-sweep BUY/SELL decisions scored from 0 to 100.
 
 ## Features
 
@@ -17,6 +17,8 @@ KSL Universal H1 Liquidity + CRT + Order Blocks v6 is a clean TradingView Pine S
 - Explicit `BSL SWEEP` / `SSL SWEEP` labels without historical liquidity lines
 - Confirmed H1 Candle Range Theory events with one opposite-side CRT target line
 - Consistent `POSITIVE` / `NEGATIVE` naming for order blocks and breakers
+- Arabic `ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©` confirmation and a temporary entry zone after each sweep
+- Dynamic `BUY n/100` or `SELL n/100` only after a sweep, candle confirmation, and the configured minimum strength
 
 ## Installation
 
