@@ -1,5 +1,5 @@
 //@version=6
-indicator("KSL Hybrid Pro", shorttitle="KSL Hybrid Pro", overlay=true, max_lines_count=300, max_labels_count=300, max_boxes_count=120)
+indicator("KSL Hybrid Pro Clean v2", shorttitle="KSL Clean v2", overlay=true, max_lines_count=120, max_labels_count=120, max_boxes_count=30)
 
 // KSL Hybrid Pro is a confirmation indicator. It does not place trades.
 // All signal decisions are made on confirmed bars to avoid repainting.
@@ -15,9 +15,12 @@ equalToleranceAtr = input.float(0.12, "Equal high/low tolerance (ATR)", minval=0
 zoneAtrSize = input.float(0.35, "Zone thickness (ATR)", minval=0.05, maxval=2.0, step=0.05, group=groupCore)
 
 groupDisplay = "Display"
-showLiquidity = input.bool(false, "D/H4/H1 liquidity levels", group=groupDisplay, tooltip="Optional context; off by default")
-showStructure = input.bool(false, "BOS / CHoCH / MSS labels", group=groupDisplay, tooltip="Used by the signal engine but hidden by default")
-showZones = input.bool(false, "Supply and demand", group=groupDisplay, tooltip="Used by the signal engine but hidden by default")
+// These concepts remain active in the signal engine but are intentionally never
+// drawn in the Clean edition. This also prevents old TradingView input values
+// from restoring the noisy historical layers after a script update.
+showLiquidity = false
+showStructure = false
+showZones = false
 showKeyLevels = input.bool(true, "Latest key high and low", group=groupDisplay)
 showRejections = input.bool(true, "Confirmed rejection markers", group=groupDisplay)
 showFvg = input.bool(true, "Latest fair value gaps", group=groupDisplay)
