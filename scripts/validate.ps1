@@ -15,7 +15,7 @@ foreach ($file in $requiredFiles) {
 $source = Get-Content -LiteralPath $indicatorPath -Raw
 $requiredPatterns = @(
     '//@version=6',
-    'indicator\("KSL Liquidity Entry Assistant v7"',
+    'indicator\("KSL Liquidity Entry Assistant v8"',
     'barmerge\.lookahead_off',
     'alertcondition\(buySignal',
     'alertcondition\(sellSignal',
@@ -33,9 +33,9 @@ $requiredPatterns = @(
     'NEGATIVE BREAKER'
     'isCrypto'
     'CRYPTO H1'
-    'ØªÙ… Ø³Ø­Ø¨ Ø§Ù„Ø³ÙŠÙˆÙ„Ø©'
-    'BUY ENTRY ZONE'
-    'SELL ENTRY ZONE'
+    'تم سحب السيولة'
+    'shape.arrowup'
+    'shape.arrowdown'
     'buyStrength'
     'sellStrength'
     '/100'
