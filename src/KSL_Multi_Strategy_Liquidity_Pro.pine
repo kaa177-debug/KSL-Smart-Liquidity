@@ -91,7 +91,6 @@ slBufferAtr = input.float(0.20, "Invalidation buffer (ATR)", minval=0.0, maxval=
 showStopLoss = input.bool(true, "Show latest Stop Loss", group=G_RISK)
 
 showDashboard = input.bool(true, "Show dashboard", group=G_DASH)
-dashboardPosition = input.string("Bottom Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DASH)
 
 enableDynamicAlerts = input.bool(true, "Enable dynamic final-signal alert()", group=G_ALERT)
 cleanChart = input.bool(true, "Clean Chart Mode", group=G_VIS)
@@ -212,7 +211,6 @@ f_manage_fvg(box activeBox, bool enabled, bool newGap, float top, float bottom, 
 
 f_in_box(box activeBox) => not na(activeBox) and high >= box.get_bottom(activeBox) and low <= box.get_top(activeBox)
 f_price(float value) => na(value) ? "N/A" : str.tostring(value, format.mintick)
-f_dash_pos(string value) => value == "Top Left" ? position.top_left : value == "Bottom Right" ? position.bottom_right : value == "Bottom Left" ? position.bottom_left : position.top_right
 
 // =============================================================================
 // Closed higher-timeframe cache - all request.security calls use lookahead_off
@@ -801,26 +799,26 @@ string finalStatus = conflict ? "CONFLICT - WAIT" : f_dir_text(activeDirection)
 string liquiditySummary = liquidityStatus + " | TGT " + f_price(activeLiquidityTarget)
 string signalSummary = finalStatus + " | " + activeEngine
 string strengthSummary = activeConfidence + "  " + str.tostring(activeScore) + "/100"
-var table dashboard = table.new(f_dash_pos(dashboardPosition), 2, 7, border_width=1)
+var table dashboard = table.new(position.bottom_right, 2, 7, border_width=1)
 if barstate.islast
     if showDashboard
         color header = color.rgb(35, 75, 170)
         color panel = color.rgb(50, 52, 62)
         color key = color.silver
-        table.cell(dashboard, 0, 0, "KSL", bgcolor=header, text_color=color.white, text_size=size.tiny)
-        table.cell(dashboard, 1, 0, "STATUS", bgcolor=header, text_color=color.white, text_size=size.tiny)
-        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow, text_size=size.tiny)
-        table.cell(dashboard, 0, 2, "Bias", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white, text_size=size.tiny)
-        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 3, liquiditySummary, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray, text_size=size.tiny)
-        table.cell(dashboard, 0, 4, "Signal", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 4, signalSummary, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection), text_size=size.tiny)
-        table.cell(dashboard, 0, 5, "Strength", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 5, strengthSummary, bgcolor=panel, text_color=color.yellow, text_size=size.tiny)
-        table.cell(dashboard, 0, 6, "Stop Loss", bgcolor=panel, text_color=key, text_size=size.tiny)
-        table.cell(dashboard, 1, 6, f_price(activeStop), bgcolor=panel, text_color=color.red, text_size=size.tiny)
+        table.cell(dashboard, 0, 0, "KSL", bgcolor=header, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 1, 0, "STATUS", bgcolor=header, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow, text_size=size.small)
+        table.cell(dashboard, 0, 2, "Bias", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 3, liquiditySummary, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray, text_size=size.small)
+        table.cell(dashboard, 0, 4, "Signal", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 4, signalSummary, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection), text_size=size.small)
+        table.cell(dashboard, 0, 5, "Strength", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 5, strengthSummary, bgcolor=panel, text_color=color.yellow, text_size=size.small)
+        table.cell(dashboard, 0, 6, "Stop Loss", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 6, f_price(activeStop), bgcolor=panel, text_color=color.red, text_size=size.small)
     else
         table.clear(dashboard, 0, 0, 1, 6)
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4 - 2026-08-02
+
+- Removed the saved dashboard-position input and hard-fixed the table to Bottom Right.
+- Increased all dashboard text from Tiny to Small for readability.
+
 ## 1.0.3 - 2026-08-02
 
 - Changed the default dashboard position to Bottom Right so it does not cover the indicator legend.
