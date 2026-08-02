@@ -1,0 +1,864 @@
+//@version=6
+indicator("KSL Multi-Strategy Liquidity Pro", shorttitle="KSL Multi Pro", overlay=true, max_boxes_count=60, max_lines_count=100, max_labels_count=100)
+
+// Original, transparent, rule-based indicator.
+// Confirmed higher-timeframe values deliberately use [1] with lookahead_off.
+// This adds confirmation delay, but prevents incomplete HTF candles from becoming signals.
+
+// =============================================================================
+// Inputs
+// =============================================================================
+string G_GENERAL = "1. General"
+string G_TF = "2. Timeframes"
+string G_SR = "3. Support and Resistance"
+string G_LIQ = "4. Liquidity"
+string G_FVG = "5. FVG"
+string G_ZONES = "6. Supply and Demand"
+string G_A = "7. Engine A - Strong MSB"
+string G_B = "8. Engine B - Candle Rejection"
+string G_C = "9. Engine C - Zone Sweep"
+string G_D = "10. Engine D - Range Expansion"
+string G_RISK = "11. Risk"
+string G_DASH = "12. Dashboard"
+string G_ALERT = "13. Alerts"
+string G_VIS = "14. Visuals"
+string G_DEBUG = "15. Debug"
+
+preset = input.string("BALANCED", "Preset", options=["CONSERVATIVE", "BALANCED", "AGGRESSIVE", "CUSTOM"], group=G_GENERAL)
+confirmedOnly = input.bool(true, "Confirmed execution candles only", group=G_GENERAL)
+enableM1 = input.bool(false, "Enable optional M1 execution", group=G_GENERAL)
+showOnlyMulti = input.bool(false, "Show Only Multi-Engine Opportunities", group=G_GENERAL)
+signalCooldown = input.int(8, "Per-engine signal cooldown (bars)", minval=0, maxval=100, group=G_GENERAL)
+
+tfD = input.timeframe("D", "Daily", group=G_TF)
+tfH4 = input.timeframe("240", "H4", group=G_TF)
+tfH1 = input.timeframe("60", "H1", group=G_TF)
+tfM15 = input.timeframe("15", "M15 confirmation", group=G_TF)
+pivotD = input.int(4, "Daily pivot strength", minval=2, maxval=20, group=G_TF)
+pivotH4 = input.int(4, "H4 pivot strength", minval=2, maxval=20, group=G_TF)
+pivotH1 = input.int(4, "H1 pivot strength", minval=2, maxval=20, group=G_TF)
+pivotM15 = input.int(3, "M15 pivot strength", minval=2, maxval=15, group=G_TF)
+pivotM5 = input.int(3, "M5 pivot strength", minval=2, maxval=15, group=G_TF)
+pivotM1 = input.int(3, "M1 pivot strength", minval=2, maxval=15, group=G_TF)
+
+showSR = input.bool(true, "Show D/H4/H1 support and resistance", group=G_SR)
+srAtrInvalidation = input.float(0.05, "Close invalidation buffer (ATR)", minval=0.0, maxval=1.0, step=0.05, group=G_SR)
+
+showLiquidity = input.bool(true, "Show nearest active liquidity", group=G_LIQ)
+showSweepLabels = input.bool(true, "Show confirmed sweep labels", group=G_LIQ)
+equalToleranceAtr = input.float(0.12, "Equal high/low tolerance (ATR)", minval=0.01, maxval=0.75, step=0.01, group=G_LIQ)
+sweepBufferCustom = input.float(0.05, "CUSTOM sweep buffer (ATR)", minval=0.0, maxval=0.5, step=0.01, group=G_LIQ)
+sweepWindow = input.int(8, "Sweep-to-entry window (bars)", minval=1, maxval=40, group=G_LIQ)
+
+showFvg = input.bool(true, "Show active FVGs", group=G_FVG)
+fvgMitigation = input.string("50% Fill", "Mitigation", options=["Wick Touch", "50% Fill", "Full Fill"], group=G_FVG)
+minFvgAtr = input.float(0.10, "Minimum FVG size (ATR)", minval=0.0, maxval=2.0, step=0.05, group=G_FVG)
+
+showZones = input.bool(true, "Show nearest H1 supply/demand", group=G_ZONES)
+zoneDisplacementAtr = input.float(1.0, "Displacement body (H1 ATR)", minval=0.5, maxval=3.0, step=0.1, group=G_ZONES)
+zoneMitigationPct = input.float(50.0, "Partial mitigation threshold (%)", minval=10.0, maxval=100.0, step=5.0, group=G_ZONES)
+
+enableA = input.bool(true, "Enable Engine A", group=G_A)
+strongBodyAtr = input.float(0.8, "Strong break body (H4 ATR)", minval=0.2, maxval=3.0, step=0.1, group=G_A)
+minScoreAInput = input.int(75, "CUSTOM minimum score", minval=0, maxval=100, group=G_A)
+showWeakMsb = input.bool(false, "Show Weak MSB labels (never signals)", group=G_A)
+
+enableB = input.bool(true, "Enable Engine B", group=G_B)
+rejectionType = input.string("Sweep and Close Back Inside", "Rejection type", options=["Pin Bar", "Engulfing Candle", "Outside Bar", "Displacement Rejection", "Sweep and Close Back Inside", "Any Valid Rejection"], group=G_B)
+allowMidRange = input.bool(false, "Allow Mid-Range Rejections", group=G_B)
+minWickPct = input.float(55.0, "Minimum rejection wick (%)", minval=30.0, maxval=90.0, step=5.0, group=G_B)
+maxOppWickPct = input.float(25.0, "Maximum opposite wick (%)", minval=5.0, maxval=50.0, step=5.0, group=G_B)
+minRejectAtr = input.float(0.5, "Minimum rejection candle (ATR)", minval=0.1, maxval=3.0, step=0.1, group=G_B)
+rejectionConfirmation = input.string("Break rejection high/low", "Confirmation", options=["Break rejection high/low", "Micro structure shift", "Either"], group=G_B)
+minScoreBInput = input.int(75, "CUSTOM minimum score", minval=0, maxval=100, group=G_B)
+
+enableC = input.bool(true, "Enable Engine C", group=G_C)
+zoneSweepMode = input.string("BALANCED", "Execution mode", options=["AGGRESSIVE", "BALANCED", "CONSERVATIVE"], group=G_C)
+minScoreCInput = input.int(80, "CUSTOM minimum score", minval=0, maxval=100, group=G_C)
+
+enableD = input.bool(true, "Enable Engine D", group=G_D)
+rangeBars = input.int(20, "Range bars", minval=12, maxval=40, group=G_D)
+rangeMinAtr = input.float(1.0, "Minimum range height (ATR)", minval=0.5, maxval=5.0, step=0.25, group=G_D)
+rangeMaxAtr = input.float(4.0, "Maximum range height (ATR)", minval=1.0, maxval=10.0, step=0.25, group=G_D)
+rangeReactionTolerance = input.float(0.15, "Boundary reaction tolerance", minval=0.05, maxval=0.5, step=0.05, group=G_D)
+rangeMinReactions = input.int(2, "Minimum reactions per boundary", minval=2, maxval=8, group=G_D)
+rangeBreakBodyAtr = input.float(0.8, "Breakout body (ATR)", minval=0.2, maxval=3.0, step=0.1, group=G_D)
+rangeEntryMethod = input.string("Retest of Range", "Entry method", options=["Breakout Close", "Retest of Range", "Breakout FVG"], group=G_D)
+useVolumeFilter = input.bool(false, "Use volume filter", group=G_D)
+minScoreDInput = input.int(75, "CUSTOM minimum score", minval=0, maxval=100, group=G_D)
+
+slBufferAtr = input.float(0.20, "Invalidation buffer (ATR)", minval=0.0, maxval=2.0, step=0.05, group=G_RISK)
+showStopLoss = input.bool(true, "Show latest Stop Loss", group=G_RISK)
+
+showDashboard = input.bool(true, "Show dashboard", group=G_DASH)
+
+enableDynamicAlerts = input.bool(true, "Enable dynamic final-signal alert()", group=G_ALERT)
+cleanChart = input.bool(true, "Clean Chart Mode", group=G_VIS)
+showMajorStructure = input.bool(false, "Show major structure labels", group=G_VIS)
+debugMode = input.bool(false, "Debug Mode", group=G_DEBUG)
+
+// Presets adjust critical thresholds without changing the visible CUSTOM inputs.
+float sweepBufferAtr = preset == "CONSERVATIVE" ? 0.10 : preset == "AGGRESSIVE" ? 0.02 : preset == "CUSTOM" ? sweepBufferCustom : 0.05
+int minScoreA = preset == "CONSERVATIVE" ? 85 : preset == "AGGRESSIVE" ? 65 : preset == "CUSTOM" ? minScoreAInput : 75
+int minScoreB = preset == "CONSERVATIVE" ? 85 : preset == "AGGRESSIVE" ? 65 : preset == "CUSTOM" ? minScoreBInput : 75
+int minScoreC = preset == "CONSERVATIVE" ? 90 : preset == "AGGRESSIVE" ? 70 : preset == "CUSTOM" ? minScoreCInput : 80
+int minScoreD = preset == "CONSERVATIVE" ? 85 : preset == "AGGRESSIVE" ? 65 : preset == "CUSTOM" ? minScoreDInput : 75
+
+// =============================================================================
+// Helpers
+// =============================================================================
+f_htf_pack(int p) =>
+    float ph = ta.pivothigh(high, p, p)
+    float pl = ta.pivotlow(low, p, p)
+    float phPrev = ta.valuewhen(not na(ph), ph, 1)
+    float plPrev = ta.valuewhen(not na(pl), pl, 1)
+    bool bullGap = low[1] > high[3]
+    bool bearGap = high[1] < low[3]
+    [time[1], open[1], high[1], low[1], close[1], open[2], high[2], low[2], close[2], ta.atr(14)[1], ta.ema(close, 20)[1], ta.ema(close, 50)[1], ph[1], pl[1], phPrev[1], plPrev[1], bullGap ? 1 : 0, bullGap ? low[1] : na, bullGap ? high[3] : na, bearGap ? 1 : 0, bearGap ? low[3] : na, bearGap ? high[1] : na]
+
+f_bias(float ph, float phPrev, float pl, float plPrev, float c, float fast, float slow) =>
+    bool positiveStructure = not na(ph) and not na(phPrev) and not na(pl) and not na(plPrev) and ph > phPrev and pl > plPrev
+    bool negativeStructure = not na(ph) and not na(phPrev) and not na(pl) and not na(plPrev) and ph < phPrev and pl < plPrev
+    positiveStructure or (c > fast and fast > slow) ? 1 : negativeStructure or (c < fast and fast < slow) ? -1 : 0
+
+f_bias_text(int bias) => bias == 1 ? "POSITIVE" : bias == -1 ? "NEGATIVE" : "NEUTRAL"
+f_bias_short(int bias) => bias == 1 ? "+" : bias == -1 ? "-" : "0"
+f_dir_text(int dir) => dir == 1 ? "BUY" : dir == -1 ? "SELL" : "WAIT"
+f_status_color(int dir) => dir == 1 ? color.lime : dir == -1 ? color.red : color.yellow
+
+f_nearest_above(float price, float a, float b, float c, float d, float e, float f) =>
+    float result = na
+    if not na(a) and a > price
+        result := a
+    if not na(b) and b > price
+        result := na(result) ? b : math.min(result, b)
+    if not na(c) and c > price
+        result := na(result) ? c : math.min(result, c)
+    if not na(d) and d > price
+        result := na(result) ? d : math.min(result, d)
+    if not na(e) and e > price
+        result := na(result) ? e : math.min(result, e)
+    if not na(f) and f > price
+        result := na(result) ? f : math.min(result, f)
+    result
+
+f_nearest_below(float price, float a, float b, float c, float d, float e, float f) =>
+    float result = na
+    if not na(a) and a < price
+        result := a
+    if not na(b) and b < price
+        result := na(result) ? b : math.max(result, b)
+    if not na(c) and c < price
+        result := na(result) ? c : math.max(result, c)
+    if not na(d) and d < price
+        result := na(result) ? d : math.max(result, d)
+    if not na(e) and e < price
+        result := na(result) ? e : math.max(result, e)
+    if not na(f) and f < price
+        result := na(result) ? f : math.max(result, f)
+    result
+
+f_draw_level(line activeLine, label activeLabel, bool visible, float price, string caption, color levelColor, int width) =>
+    line resultLine = activeLine
+    label resultLabel = activeLabel
+    if visible and not na(price)
+        if na(resultLine)
+            resultLine := line.new(bar_index, price, bar_index + 1, price, extend=extend.right, color=levelColor, width=width)
+        else
+            line.set_xy1(resultLine, bar_index, price)
+            line.set_xy2(resultLine, bar_index + 1, price)
+            line.set_color(resultLine, levelColor)
+        if not cleanChart and str.length(caption) > 0
+            if na(resultLabel)
+                resultLabel := label.new(bar_index + 1, price, caption, style=label.style_label_left, textcolor=levelColor, color=color.new(color.black, 100), size=size.tiny)
+            else
+                label.set_xy(resultLabel, bar_index + 1, price)
+                label.set_text(resultLabel, caption)
+                label.set_textcolor(resultLabel, levelColor)
+        else if not na(resultLabel)
+            label.delete(resultLabel)
+            resultLabel := na
+    else
+        if not na(resultLine)
+            line.delete(resultLine)
+            resultLine := na
+        if not na(resultLabel)
+            label.delete(resultLabel)
+            resultLabel := na
+    [resultLine, resultLabel]
+
+f_manage_fvg(box activeBox, bool enabled, bool newGap, float top, float bottom, bool bullish, color borderColor, string caption) =>
+    box result = activeBox
+    bool mitigated = false
+    color visibleBorder = enabled ? borderColor : color.new(borderColor, 100)
+    color visibleFill = enabled ? color.new(borderColor, 90) : color.new(borderColor, 100)
+    if newGap and not na(top) and not na(bottom) and top > bottom
+        if not na(result)
+            box.delete(result)
+        result := box.new(left=bar_index, top=top, right=bar_index + 1, bottom=bottom, extend=extend.right, border_color=visibleBorder, bgcolor=visibleFill, text=enabled and not cleanChart ? caption : "", text_color=visibleBorder, text_size=size.tiny)
+    if not na(result)
+        box.set_border_color(result, visibleBorder)
+        box.set_bgcolor(result, visibleFill)
+        box.set_text(result, enabled and not cleanChart ? caption : "")
+        float boxTop = box.get_top(result)
+        float boxBottom = box.get_bottom(result)
+        float threshold = bullish ? (fvgMitigation == "Wick Touch" ? boxTop : fvgMitigation == "50% Fill" ? (boxTop + boxBottom) * 0.5 : boxBottom) : (fvgMitigation == "Wick Touch" ? boxBottom : fvgMitigation == "50% Fill" ? (boxTop + boxBottom) * 0.5 : boxTop)
+        mitigated := bullish ? low <= threshold : high >= threshold
+        if mitigated
+            box.delete(result)
+            result := na
+    [result, mitigated]
+
+f_in_box(box activeBox) => not na(activeBox) and high >= box.get_bottom(activeBox) and low <= box.get_top(activeBox)
+f_price(float value) => na(value) ? "N/A" : str.tostring(value, format.mintick)
+
+// =============================================================================
+// Closed higher-timeframe cache - all request.security calls use lookahead_off
+// =============================================================================
+[dT, dO, dH, dL, dC, dO2, dH2, dL2, dC2, dAtr, dEma20, dEma50, dPH, dPL, dPHPrev, dPLPrev, dBullGap, dBullTop, dBullBottom, dBearGap, dBearTop, dBearBottom] = request.security(syminfo.tickerid, tfD, f_htf_pack(pivotD), barmerge.gaps_off, barmerge.lookahead_off)
+[h4T, h4O, h4H, h4L, h4C, h4O2, h4H2, h4L2, h4C2, h4Atr, h4Ema20, h4Ema50, h4PH, h4PL, h4PHPrev, h4PLPrev, h4BullGap, h4BullTop, h4BullBottom, h4BearGap, h4BearTop, h4BearBottom] = request.security(syminfo.tickerid, tfH4, f_htf_pack(pivotH4), barmerge.gaps_off, barmerge.lookahead_off)
+[h1T, h1O, h1H, h1L, h1C, h1O2, h1H2, h1L2, h1C2, h1Atr, h1Ema20, h1Ema50, h1PH, h1PL, h1PHPrev, h1PLPrev, h1BullGap, h1BullTop, h1BullBottom, h1BearGap, h1BearTop, h1BearBottom] = request.security(syminfo.tickerid, tfH1, f_htf_pack(pivotH1), barmerge.gaps_off, barmerge.lookahead_off)
+[m15T, m15O, m15H, m15L, m15C, m15O2, m15H2, m15L2, m15C2, m15Atr, m15Ema20, m15Ema50, m15PH, m15PL, m15PHPrev, m15PLPrev, m15BullGap, m15BullTop, m15BullBottom, m15BearGap, m15BearTop, m15BearBottom] = request.security(syminfo.tickerid, tfM15, f_htf_pack(pivotM15), barmerge.gaps_off, barmerge.lookahead_off)
+
+bool newD = ta.change(dT) != 0
+bool newH4 = ta.change(h4T) != 0
+bool newH1 = ta.change(h1T) != 0
+bool newM15 = ta.change(m15T) != 0
+bool executionConfirmed = not confirmedOnly or barstate.isconfirmed
+bool isM5 = timeframe.isminutes and timeframe.multiplier == 5
+bool isM1 = timeframe.isminutes and timeframe.multiplier == 1
+bool executionAllowed = isM5 or (isM1 and enableM1)
+float atr = ta.atr(14)
+int localPivotStrength = isM1 ? pivotM1 : pivotM5
+float localPH = ta.pivothigh(high, localPivotStrength, localPivotStrength)
+float localPL = ta.pivotlow(low, localPivotStrength, localPivotStrength)
+float latestLocalPH = ta.valuewhen(not na(localPH), localPH, 0)
+float latestLocalPL = ta.valuewhen(not na(localPL), localPL, 0)
+float previousLocalPH = ta.valuewhen(not na(localPH), localPH, 1)
+float previousLocalPL = ta.valuewhen(not na(localPL), localPL, 1)
+bool localBullShift = executionConfirmed and not na(latestLocalPH) and close > latestLocalPH and close[1] <= latestLocalPH
+bool localBearShift = executionConfirmed and not na(latestLocalPL) and close < latestLocalPL and close[1] >= latestLocalPL
+int dBias = f_bias(dPH, dPHPrev, dPL, dPLPrev, dC, dEma20, dEma50)
+int h4BiasBase = f_bias(h4PH, h4PHPrev, h4PL, h4PLPrev, h4C, h4Ema20, h4Ema50)
+int h1Bias = f_bias(h1PH, h1PHPrev, h1PL, h1PLPrev, h1C, h1Ema20, h1Ema50)
+int m15Bias = f_bias(m15PH, m15PHPrev, m15PL, m15PLPrev, m15C, m15Ema20, m15Ema50)
+
+// =============================================================================
+// Active D/H4/H1 support and resistance
+// =============================================================================
+var float dResistance = na
+var float dSupport = na
+var float h4Resistance = na
+var float h4Support = na
+var float h1Resistance = na
+var float h1Support = na
+var bool dResActive = false
+var bool dSupActive = false
+var bool h4ResActive = false
+var bool h4SupActive = false
+var bool h1ResActive = false
+var bool h1SupActive = false
+
+if newD
+    if not na(dPH) and (na(dResistance) or math.abs(dPH - dResistance) >= syminfo.mintick)
+        dResistance := dPH
+        dResActive := true
+    if not na(dPL) and (na(dSupport) or math.abs(dPL - dSupport) >= syminfo.mintick)
+        dSupport := dPL
+        dSupActive := true
+    if dResActive and dC > dResistance + dAtr * srAtrInvalidation
+        dResActive := false
+    if dSupActive and dC < dSupport - dAtr * srAtrInvalidation
+        dSupActive := false
+if newH4
+    if not na(h4PH) and (na(h4Resistance) or math.abs(h4PH - h4Resistance) >= syminfo.mintick)
+        h4Resistance := h4PH
+        h4ResActive := true
+    if not na(h4PL) and (na(h4Support) or math.abs(h4PL - h4Support) >= syminfo.mintick)
+        h4Support := h4PL
+        h4SupActive := true
+    if h4ResActive and h4C > h4Resistance + h4Atr * srAtrInvalidation
+        h4ResActive := false
+    if h4SupActive and h4C < h4Support - h4Atr * srAtrInvalidation
+        h4SupActive := false
+if newH1
+    if not na(h1PH) and (na(h1Resistance) or math.abs(h1PH - h1Resistance) >= syminfo.mintick)
+        h1Resistance := h1PH
+        h1ResActive := true
+    if not na(h1PL) and (na(h1Support) or math.abs(h1PL - h1Support) >= syminfo.mintick)
+        h1Support := h1PL
+        h1SupActive := true
+    if h1ResActive and h1C > h1Resistance + h1Atr * srAtrInvalidation
+        h1ResActive := false
+    if h1SupActive and h1C < h1Support - h1Atr * srAtrInvalidation
+        h1SupActive := false
+
+var line dResLine = na
+var line dSupLine = na
+var line h4ResLine = na
+var line h4SupLine = na
+var line h1ResLine = na
+var line h1SupLine = na
+var label dResLabel = na
+var label dSupLabel = na
+var label h4ResLabel = na
+var label h4SupLabel = na
+var label h1ResLabel = na
+var label h1SupLabel = na
+[dResLineNext, dResLabelNext] = f_draw_level(dResLine, dResLabel, showSR and dResActive, dResistance, "D-RESISTANCE", color.black, 3)
+dResLine := dResLineNext
+dResLabel := dResLabelNext
+[dSupLineNext, dSupLabelNext] = f_draw_level(dSupLine, dSupLabel, showSR and dSupActive, dSupport, "D-SUPPORT", color.black, 3)
+dSupLine := dSupLineNext
+dSupLabel := dSupLabelNext
+[h4ResLineNext, h4ResLabelNext] = f_draw_level(h4ResLine, h4ResLabel, showSR and h4ResActive, h4Resistance, "H4-RESISTANCE", color.yellow, 2)
+h4ResLine := h4ResLineNext
+h4ResLabel := h4ResLabelNext
+[h4SupLineNext, h4SupLabelNext] = f_draw_level(h4SupLine, h4SupLabel, showSR and h4SupActive, h4Support, "H4-SUPPORT", color.yellow, 2)
+h4SupLine := h4SupLineNext
+h4SupLabel := h4SupLabelNext
+[h1ResLineNext, h1ResLabelNext] = f_draw_level(h1ResLine, h1ResLabel, showSR and h1ResActive, h1Resistance, "H1-RESISTANCE", color.green, 2)
+h1ResLine := h1ResLineNext
+h1ResLabel := h1ResLabelNext
+[h1SupLineNext, h1SupLabelNext] = f_draw_level(h1SupLine, h1SupLabel, showSR and h1SupActive, h1Support, "H1-SUPPORT", color.green, 2)
+h1SupLine := h1SupLineNext
+h1SupLabel := h1SupLabelNext
+
+// =============================================================================
+// FVGs - one active bullish and bearish gap per tracked timeframe
+// =============================================================================
+bool localBullFvg = executionConfirmed and low > high[2] and low - high[2] >= atr * minFvgAtr
+bool localBearFvg = executionConfirmed and high < low[2] and low[2] - high >= atr * minFvgAtr
+var box dBullBox = na
+var box dBearBox = na
+var box h4BullBox = na
+var box h4BearBox = na
+var box h1BullBox = na
+var box h1BearBox = na
+var box m15BullBox = na
+var box m15BearBox = na
+var box m5BullBox = na
+var box m5BearBox = na
+[dBullBoxNext, dBullMit] = f_manage_fvg(dBullBox, showFvg, newD and dBullGap == 1 and dBullTop - dBullBottom >= dAtr * minFvgAtr, dBullTop, dBullBottom, true, color.black, "D FVG")
+dBullBox := dBullBoxNext
+[dBearBoxNext, dBearMit] = f_manage_fvg(dBearBox, showFvg, newD and dBearGap == 1 and dBearTop - dBearBottom >= dAtr * minFvgAtr, dBearTop, dBearBottom, false, color.black, "D FVG")
+dBearBox := dBearBoxNext
+[h4BullBoxNext, h4BullMit] = f_manage_fvg(h4BullBox, showFvg, newH4 and h4BullGap == 1 and h4BullTop - h4BullBottom >= h4Atr * minFvgAtr, h4BullTop, h4BullBottom, true, color.yellow, "H4 FVG")
+h4BullBox := h4BullBoxNext
+[h4BearBoxNext, h4BearMit] = f_manage_fvg(h4BearBox, showFvg, newH4 and h4BearGap == 1 and h4BearTop - h4BearBottom >= h4Atr * minFvgAtr, h4BearTop, h4BearBottom, false, color.yellow, "H4 FVG")
+h4BearBox := h4BearBoxNext
+[h1BullBoxNext, h1BullMit] = f_manage_fvg(h1BullBox, showFvg, newH1 and h1BullGap == 1 and h1BullTop - h1BullBottom >= h1Atr * minFvgAtr, h1BullTop, h1BullBottom, true, color.green, "H1 FVG")
+h1BullBox := h1BullBoxNext
+[h1BearBoxNext, h1BearMit] = f_manage_fvg(h1BearBox, showFvg, newH1 and h1BearGap == 1 and h1BearTop - h1BearBottom >= h1Atr * minFvgAtr, h1BearTop, h1BearBottom, false, color.green, "H1 FVG")
+h1BearBox := h1BearBoxNext
+[m15BullBoxNext, m15BullMit] = f_manage_fvg(m15BullBox, showFvg, newM15 and m15BullGap == 1 and m15BullTop - m15BullBottom >= m15Atr * minFvgAtr, m15BullTop, m15BullBottom, true, color.blue, "M15 FVG")
+m15BullBox := m15BullBoxNext
+[m15BearBoxNext, m15BearMit] = f_manage_fvg(m15BearBox, showFvg, newM15 and m15BearGap == 1 and m15BearTop - m15BearBottom >= m15Atr * minFvgAtr, m15BearTop, m15BearBottom, false, color.blue, "M15 FVG")
+m15BearBox := m15BearBoxNext
+[m5BullBoxNext, m5BullMit] = f_manage_fvg(m5BullBox, showFvg, localBullFvg, low, high[2], true, color.gray, isM1 ? "M1 FVG" : "M5 FVG")
+m5BullBox := m5BullBoxNext
+[m5BearBoxNext, m5BearMit] = f_manage_fvg(m5BearBox, showFvg, localBearFvg, low[2], high, false, color.gray, isM1 ? "M1 FVG" : "M5 FVG")
+m5BearBox := m5BearBoxNext
+bool anyFvgMitigation = dBullMit or dBearMit or h4BullMit or h4BearMit or h1BullMit or h1BearMit or m15BullMit or m15BearMit or m5BullMit or m5BearMit
+
+// =============================================================================
+// H1 supply and demand from last opposing candle before confirmed displacement
+// =============================================================================
+var float demandTop = na
+var float demandBottom = na
+var float supplyTop = na
+var float supplyBottom = na
+var int demandState = 0
+var int supplyState = 0
+var box demandBox = na
+var box supplyBox = na
+bool newDemand = newH1 and h1C > h1O and h1C2 < h1O2 and math.abs(h1C - h1O) >= h1Atr * zoneDisplacementAtr
+bool newSupply = newH1 and h1C < h1O and h1C2 > h1O2 and math.abs(h1C - h1O) >= h1Atr * zoneDisplacementAtr
+if newDemand
+    demandTop := h1H2
+    demandBottom := h1L2
+    demandState := 1
+    if not na(demandBox)
+        box.delete(demandBox)
+    if showZones
+        demandBox := box.new(bar_index, demandTop, bar_index + 1, demandBottom, extend=extend.right, border_color=color.new(color.lime, cleanChart ? 35 : 0), bgcolor=color.new(color.lime, cleanChart ? 97 : 88), text=cleanChart ? "" : "H1 DEMAND", text_color=color.lime, text_size=size.tiny)
+if newSupply
+    supplyTop := h1H2
+    supplyBottom := h1L2
+    supplyState := 1
+    if not na(supplyBox)
+        box.delete(supplyBox)
+    if showZones
+        supplyBox := box.new(bar_index, supplyTop, bar_index + 1, supplyBottom, extend=extend.right, border_color=color.new(color.red, cleanChart ? 35 : 0), bgcolor=color.new(color.red, cleanChart ? 97 : 88), text=cleanChart ? "" : "H1 SUPPLY", text_color=color.red, text_size=size.tiny)
+if demandState > 0 and not na(demandTop)
+    if close < demandBottom
+        demandState := 5
+        if not na(demandBox)
+            box.delete(demandBox)
+            demandBox := na
+    else if low <= demandBottom
+        demandState := 4
+    else if low <= demandTop - (demandTop - demandBottom) * zoneMitigationPct * 0.01
+        demandState := 3
+    else if low <= demandTop
+        demandState := 2
+if supplyState > 0 and not na(supplyTop)
+    if close > supplyTop
+        supplyState := 5
+        if not na(supplyBox)
+            box.delete(supplyBox)
+            supplyBox := na
+    else if high >= supplyTop
+        supplyState := 4
+    else if high >= supplyBottom + (supplyTop - supplyBottom) * zoneMitigationPct * 0.01
+        supplyState := 3
+    else if high >= supplyBottom
+        supplyState := 2
+if not showZones
+    if not na(demandBox)
+        box.delete(demandBox)
+        demandBox := na
+    if not na(supplyBox)
+        box.delete(supplyBox)
+        supplyBox := na
+bool demandActive = demandState > 0 and demandState < 5
+bool supplyActive = supplyState > 0 and supplyState < 5
+bool inDemand = demandActive and high >= demandBottom and low <= demandTop
+bool inSupply = supplyActive and high >= supplyBottom and low <= supplyTop
+bool enterBullZone = executionConfirmed and inDemand and not inDemand[1]
+bool enterBearZone = executionConfirmed and inSupply and not inSupply[1]
+
+// =============================================================================
+// Liquidity map and one-sweep-per-level state
+// =============================================================================
+bool equalHighs = not na(latestLocalPH) and not na(previousLocalPH) and math.abs(latestLocalPH - previousLocalPH) <= atr * equalToleranceAtr
+bool equalLows = not na(latestLocalPL) and not na(previousLocalPL) and math.abs(latestLocalPL - previousLocalPL) <= atr * equalToleranceAtr
+float equalHighLevel = equalHighs ? math.max(latestLocalPH, previousLocalPH) : na
+float equalLowLevel = equalLows ? math.min(latestLocalPL, previousLocalPL) : na
+float nearestLiquidityAbove = f_nearest_above(close, h1PH, h1H2, h4H2, dH2, equalHighLevel, latestLocalPH)
+float nearestLiquidityBelow = f_nearest_below(close, h1PL, h1L2, h4L2, dL2, equalLowLevel, latestLocalPL)
+float nearestResistance = f_nearest_above(close, dResActive ? dResistance : na, h4ResActive ? h4Resistance : na, h1ResActive ? h1Resistance : na, dH2, h4H2, h1H2)
+float nearestSupport = f_nearest_below(close, dSupActive ? dSupport : na, h4SupActive ? h4Support : na, h1SupActive ? h1Support : na, dL2, h4L2, h1L2)
+var float trackedBuyLiquidity = na
+var float trackedSellLiquidity = na
+var int buyLiquidityId = 0
+var int sellLiquidityId = 0
+var int sweptBuyLiquidityId = -1
+var int sweptSellLiquidityId = -1
+if not na(nearestLiquidityAbove) and (na(trackedBuyLiquidity) or math.abs(nearestLiquidityAbove - trackedBuyLiquidity) >= syminfo.mintick)
+    trackedBuyLiquidity := nearestLiquidityAbove
+    buyLiquidityId += 1
+if not na(nearestLiquidityBelow) and (na(trackedSellLiquidity) or math.abs(nearestLiquidityBelow - trackedSellLiquidity) >= syminfo.mintick)
+    trackedSellLiquidity := nearestLiquidityBelow
+    sellLiquidityId += 1
+bool buySideSweep = executionAllowed and executionConfirmed and not na(trackedBuyLiquidity) and high > trackedBuyLiquidity + atr * sweepBufferAtr and close < trackedBuyLiquidity and sweptBuyLiquidityId != buyLiquidityId
+bool sellSideSweep = executionAllowed and executionConfirmed and not na(trackedSellLiquidity) and low < trackedSellLiquidity - atr * sweepBufferAtr and close > trackedSellLiquidity and sweptSellLiquidityId != sellLiquidityId
+var int lastBuySweepBar = na
+var int lastSellSweepBar = na
+var float lastBuySweepHigh = na
+var float lastSellSweepLow = na
+var float lastBuySweptLevel = na
+var float lastSellSweptLevel = na
+var int lastZoneBuySweepBar = na
+var int lastZoneSellSweepBar = na
+if buySideSweep
+    sweptBuyLiquidityId := buyLiquidityId
+    lastBuySweepBar := bar_index
+    lastBuySweepHigh := high
+    lastBuySweptLevel := trackedBuyLiquidity
+    if inSupply
+        lastZoneBuySweepBar := bar_index
+    if showSweepLabels
+        label.new(bar_index, high, "BUY-SIDE SWEEP", style=label.style_label_down, color=color.new(color.red, 15), textcolor=color.white, size=size.tiny)
+if sellSideSweep
+    sweptSellLiquidityId := sellLiquidityId
+    lastSellSweepBar := bar_index
+    lastSellSweepLow := low
+    lastSellSweptLevel := trackedSellLiquidity
+    if inDemand
+        lastZoneSellSweepBar := bar_index
+    if showSweepLabels
+        label.new(bar_index, low, "SELL-SIDE SWEEP", style=label.style_label_up, color=color.new(color.lime, 15), textcolor=color.black, size=size.tiny)
+bool recentBuySweep = not na(lastBuySweepBar) and bar_index - lastBuySweepBar <= sweepWindow
+bool recentSellSweep = not na(lastSellSweepBar) and bar_index - lastSellSweepBar <= sweepWindow
+bool recentZoneBuySweep = not na(lastZoneBuySweepBar) and bar_index - lastZoneBuySweepBar <= sweepWindow
+bool recentZoneSellSweep = not na(lastZoneSellSweepBar) and bar_index - lastZoneSellSweepBar <= sweepWindow
+
+var line liquidityAboveLine = na
+var line liquidityBelowLine = na
+var label liquidityAboveLabel = na
+var label liquidityBelowLabel = na
+[liquidityAboveLineNext, liquidityAboveLabelNext] = f_draw_level(liquidityAboveLine, liquidityAboveLabel, showLiquidity and not na(nearestLiquidityAbove), nearestLiquidityAbove, "BUY-SIDE LIQ", color.aqua, 1)
+liquidityAboveLine := liquidityAboveLineNext
+liquidityAboveLabel := liquidityAboveLabelNext
+[liquidityBelowLineNext, liquidityBelowLabelNext] = f_draw_level(liquidityBelowLine, liquidityBelowLabel, showLiquidity and not na(nearestLiquidityBelow), nearestLiquidityBelow, "SELL-SIDE LIQ", color.aqua, 1)
+liquidityBelowLine := liquidityBelowLineNext
+liquidityBelowLabel := liquidityBelowLabelNext
+if not na(liquidityAboveLine)
+    line.set_style(liquidityAboveLine, line.style_dashed)
+if not na(liquidityBelowLine)
+    line.set_style(liquidityBelowLine, line.style_dashed)
+
+// =============================================================================
+// Engine A - Strong MSB
+// =============================================================================
+var float bearishLegLH = na
+var float deepestLL = na
+var float bullishLegHL = na
+var float highestHH = na
+var bool bullishStrongActive = false
+var bool bearishStrongActive = false
+var float bullMacroTop = na
+var float bullMacroBottom = na
+var float bearMacroTop = na
+var float bearMacroBottom = na
+bool strongMsbUp = false
+bool strongMsbDown = false
+bool weakMsbUp = false
+bool weakMsbDown = false
+if newH4
+    bool h4DownSequence = not na(h4PH) and not na(h4PHPrev) and not na(h4PL) and not na(h4PLPrev) and h4PH < h4PHPrev and h4PL < h4PLPrev
+    bool h4UpSequence = not na(h4PH) and not na(h4PHPrev) and not na(h4PL) and not na(h4PLPrev) and h4PH > h4PHPrev and h4PL > h4PLPrev
+    if h4DownSequence
+        bearishLegLH := h4PH
+        deepestLL := na(deepestLL) ? h4PL : math.min(deepestLL, h4PL)
+    if h4UpSequence
+        bullishLegHL := h4PL
+        highestHH := na(highestHH) ? h4PH : math.max(highestHH, h4PH)
+    bool closesAboveTrackedLH = not na(bearishLegLH) and h4C > bearishLegLH and h4C2 <= bearishLegLH
+    bool closesBelowTrackedHL = not na(bullishLegHL) and h4C < bullishLegHL and h4C2 >= bullishLegHL
+    strongMsbUp := closesAboveTrackedLH and math.abs(h4C - h4O) >= h4Atr * strongBodyAtr
+    strongMsbDown := closesBelowTrackedHL and math.abs(h4C - h4O) >= h4Atr * strongBodyAtr
+    weakMsbUp := closesAboveTrackedLH and not strongMsbUp
+    weakMsbDown := closesBelowTrackedHL and not strongMsbDown
+    if strongMsbUp
+        bullishStrongActive := true
+        bearishStrongActive := false
+        bullMacroTop := bearishLegLH
+        bullMacroBottom := deepestLL
+    if strongMsbDown
+        bearishStrongActive := true
+        bullishStrongActive := false
+        bearMacroTop := highestHH
+        bearMacroBottom := bullishLegHL
+    if bullishStrongActive and not na(bullMacroBottom) and h4C < bullMacroBottom
+        bullishStrongActive := false
+    if bearishStrongActive and not na(bearMacroTop) and h4C > bearMacroTop
+        bearishStrongActive := false
+if strongMsbUp
+    label.new(bar_index, high, "STRONG MSB UP", style=label.style_label_down, color=color.green, textcolor=color.white, size=size.tiny)
+if strongMsbDown
+    label.new(bar_index, low, "STRONG MSB DOWN", style=label.style_label_up, color=color.red, textcolor=color.white, size=size.tiny)
+if showWeakMsb and weakMsbUp
+    label.new(bar_index, high, "WEAK MSB", style=label.style_label_down, color=color.gray, textcolor=color.white, size=size.tiny)
+if showWeakMsb and weakMsbDown
+    label.new(bar_index, low, "WEAK MSB", style=label.style_label_up, color=color.gray, textcolor=color.white, size=size.tiny)
+
+int h4Bias = bullishStrongActive ? 1 : bearishStrongActive ? -1 : h4BiasBase
+bool bullHtfAligned = dBias == 1 or h4Bias == 1
+bool bearHtfAligned = dBias == -1 or h4Bias == -1
+float bullEntryTop = not na(h1BullBox) ? box.get_top(h1BullBox) : demandActive ? demandTop : bullMacroTop
+float bullEntryBottom = not na(h1BullBox) ? box.get_bottom(h1BullBox) : demandActive ? demandBottom : bullMacroBottom
+float bearEntryTop = not na(h1BearBox) ? box.get_top(h1BearBox) : supplyActive ? supplyTop : bearMacroTop
+float bearEntryBottom = not na(h1BearBox) ? box.get_bottom(h1BearBox) : supplyActive ? supplyBottom : bearMacroBottom
+bool inBullEntryZone = not na(bullEntryTop) and not na(bullEntryBottom) and high >= bullEntryBottom and low <= bullEntryTop
+bool inBearEntryZone = not na(bearEntryTop) and not na(bearEntryBottom) and high >= bearEntryBottom and low <= bearEntryTop
+bool bullStructureConfirm = localBullShift or m15Bias == 1
+bool bearStructureConfirm = localBearShift or m15Bias == -1
+int aBuyScore = (bullHtfAligned ? 20 : 0) + (bullishStrongActive ? 25 : 0) + (recentSellSweep ? 20 : 0) + (inBullEntryZone ? 15 : 0) + (m15Bias == 1 ? 10 : 0) + (localBullShift ? 10 : 0)
+int aSellScore = (bearHtfAligned ? 20 : 0) + (bearishStrongActive ? 25 : 0) + (recentBuySweep ? 20 : 0) + (inBearEntryZone ? 15 : 0) + (m15Bias == -1 ? 10 : 0) + (localBearShift ? 10 : 0)
+bool aBuyRaw = bullishStrongActive and inBullEntryZone and recentSellSweep and bullStructureConfirm
+bool aSellRaw = bearishStrongActive and inBearEntryZone and recentBuySweep and bearStructureConfirm
+var int lastASignalBar = na
+bool aCooldownOk = na(lastASignalBar) or bar_index - lastASignalBar > signalCooldown
+bool engineABuy = enableA and executionAllowed and executionConfirmed and aCooldownOk and aBuyRaw and aBuyScore >= minScoreA
+bool engineASell = enableA and executionAllowed and executionConfirmed and aCooldownOk and aSellRaw and aSellScore >= minScoreA
+if engineABuy or engineASell
+    lastASignalBar := bar_index
+
+// =============================================================================
+// Engine B - Candle Rejection
+// =============================================================================
+float candleRange = math.max(high - low, syminfo.mintick)
+float lowerWick = math.min(open, close) - low
+float upperWick = high - math.max(open, close)
+float lowerWickPct = lowerWick / candleRange * 100.0
+float upperWickPct = upperWick / candleRange * 100.0
+bool nearSupport = not na(nearestSupport) and low <= nearestSupport + atr * 0.15 and close >= nearestSupport
+bool nearResistance = not na(nearestResistance) and high >= nearestResistance - atr * 0.15 and close <= nearestResistance
+bool bullFvgLocation = f_in_box(dBullBox) or f_in_box(h4BullBox) or f_in_box(h1BullBox)
+bool bearFvgLocation = f_in_box(dBearBox) or f_in_box(h4BearBox) or f_in_box(h1BearBox)
+bool bullLocation = allowMidRange or nearSupport or inDemand or bullFvgLocation or sellSideSweep
+bool bearLocation = allowMidRange or nearResistance or inSupply or bearFvgLocation or buySideSweep
+bool bullWickQuality = lowerWickPct >= minWickPct and upperWickPct <= maxOppWickPct and close >= low + candleRange * 0.65 and candleRange >= atr * minRejectAtr
+bool bearWickQuality = upperWickPct >= minWickPct and lowerWickPct <= maxOppWickPct and close <= low + candleRange * 0.35 and candleRange >= atr * minRejectAtr
+bool bullPin = bullWickQuality
+bool bearPin = bearWickQuality
+bool bullEngulf = close > open and close[1] < open[1] and close >= open[1] and open <= close[1]
+bool bearEngulf = close < open and close[1] > open[1] and close <= open[1] and open >= close[1]
+bool bullOutside = high > high[1] and low < low[1] and close > open and close >= low + candleRange * 0.65
+bool bearOutside = high > high[1] and low < low[1] and close < open and close <= low + candleRange * 0.35
+bool bullDisplacementReject = bullWickQuality and math.abs(close - open) >= atr * minRejectAtr
+bool bearDisplacementReject = bearWickQuality and math.abs(close - open) >= atr * minRejectAtr
+bool bullSweepReject = sellSideSweep and bullWickQuality
+bool bearSweepReject = buySideSweep and bearWickQuality
+bool bullPattern = rejectionType == "Pin Bar" ? bullPin : rejectionType == "Engulfing Candle" ? bullEngulf : rejectionType == "Outside Bar" ? bullOutside : rejectionType == "Displacement Rejection" ? bullDisplacementReject : rejectionType == "Sweep and Close Back Inside" ? bullSweepReject : bullPin or bullEngulf or bullOutside or bullDisplacementReject or bullSweepReject
+bool bearPattern = rejectionType == "Pin Bar" ? bearPin : rejectionType == "Engulfing Candle" ? bearEngulf : rejectionType == "Outside Bar" ? bearOutside : rejectionType == "Displacement Rejection" ? bearDisplacementReject : rejectionType == "Sweep and Close Back Inside" ? bearSweepReject : bearPin or bearEngulf or bearOutside or bearDisplacementReject or bearSweepReject
+var int pendingRejectDir = 0
+var int pendingRejectBar = na
+var float pendingRejectHigh = na
+var float pendingRejectLow = na
+var int pendingRejectScore = 0
+bool rejectionBuyConfirm = false
+bool rejectionSellConfirm = false
+if pendingRejectDir == 1 and bar_index > pendingRejectBar
+    bool breakConfirm = close > pendingRejectHigh
+    bool microConfirm = localBullShift
+    rejectionBuyConfirm := rejectionConfirmation == "Break rejection high/low" ? breakConfirm : rejectionConfirmation == "Micro structure shift" ? microConfirm : breakConfirm or microConfirm
+if pendingRejectDir == -1 and bar_index > pendingRejectBar
+    bool breakConfirm = close < pendingRejectLow
+    bool microConfirm = localBearShift
+    rejectionSellConfirm := rejectionConfirmation == "Break rejection high/low" ? breakConfirm : rejectionConfirmation == "Micro structure shift" ? microConfirm : breakConfirm or microConfirm
+if not na(pendingRejectBar) and bar_index - pendingRejectBar > sweepWindow
+    pendingRejectDir := 0
+if executionAllowed and executionConfirmed and pendingRejectDir == 0
+    if bullLocation and bullPattern
+        pendingRejectDir := 1
+        pendingRejectBar := bar_index
+        pendingRejectHigh := high
+        pendingRejectLow := low
+        pendingRejectScore := 25 + (bullWickQuality ? 20 : 0) + (close > nearestSupport or sellSideSweep ? 20 : 0) + ((inDemand or bullFvgLocation) ? 15 : 0) + (localBullShift ? 15 : 0) + 5
+    else if bearLocation and bearPattern
+        pendingRejectDir := -1
+        pendingRejectBar := bar_index
+        pendingRejectHigh := high
+        pendingRejectLow := low
+        pendingRejectScore := 25 + (bearWickQuality ? 20 : 0) + (close < nearestResistance or buySideSweep ? 20 : 0) + ((inSupply or bearFvgLocation) ? 15 : 0) + (localBearShift ? 15 : 0) + 5
+int bBuyScore = rejectionBuyConfirm ? pendingRejectScore + (localBullShift ? 15 : 0) : 0
+int bSellScore = rejectionSellConfirm ? pendingRejectScore + (localBearShift ? 15 : 0) : 0
+var int lastBSignalBar = na
+bool bCooldownOk = na(lastBSignalBar) or bar_index - lastBSignalBar > signalCooldown
+bool engineBBuy = enableB and executionAllowed and executionConfirmed and bCooldownOk and rejectionBuyConfirm and bBuyScore >= minScoreB
+bool engineBSell = enableB and executionAllowed and executionConfirmed and bCooldownOk and rejectionSellConfirm and bSellScore >= minScoreB
+if engineBBuy or engineBSell
+    lastBSignalBar := bar_index
+    pendingRejectDir := 0
+
+// =============================================================================
+// Engine C - Zone Liquidity Sweep
+// =============================================================================
+bool cBullModeConfirm = zoneSweepMode == "AGGRESSIVE" ? true : zoneSweepMode == "BALANCED" ? localBullShift : localBullShift and m15Bias == 1
+bool cBearModeConfirm = zoneSweepMode == "AGGRESSIVE" ? true : zoneSweepMode == "BALANCED" ? localBearShift : localBearShift and m15Bias == -1
+bool bullZoneReclaim = recentZoneSellSweep and close > (zoneSweepMode == "CONSERVATIVE" and demandActive ? (demandTop + demandBottom) * 0.5 : lastSellSweptLevel)
+bool bearZoneReclaim = recentZoneBuySweep and close < (zoneSweepMode == "CONSERVATIVE" and supplyActive ? (supplyTop + supplyBottom) * 0.5 : lastBuySweptLevel)
+int cBuyScore = (demandActive or bullFvgLocation ? 20 : 0) + (not na(latestLocalPL) ? 15 : 0) + (recentZoneSellSweep ? 20 : 0) + (bullZoneReclaim ? 15 : 0) + (localBullShift ? 20 : zoneSweepMode == "AGGRESSIVE" ? 10 : 0) + (bullHtfAligned ? 10 : 0)
+int cSellScore = (supplyActive or bearFvgLocation ? 20 : 0) + (not na(latestLocalPH) ? 15 : 0) + (recentZoneBuySweep ? 20 : 0) + (bearZoneReclaim ? 15 : 0) + (localBearShift ? 20 : zoneSweepMode == "AGGRESSIVE" ? 10 : 0) + (bearHtfAligned ? 10 : 0)
+bool cBuyRaw = (demandActive or bullFvgLocation) and recentZoneSellSweep and bullZoneReclaim and cBullModeConfirm
+bool cSellRaw = (supplyActive or bearFvgLocation) and recentZoneBuySweep and bearZoneReclaim and cBearModeConfirm
+var int lastCSignalBar = na
+bool cCooldownOk = na(lastCSignalBar) or bar_index - lastCSignalBar > signalCooldown
+bool engineCBuy = enableC and executionAllowed and executionConfirmed and cCooldownOk and cBuyRaw and cBuyScore >= minScoreC
+bool engineCSell = enableC and executionAllowed and executionConfirmed and cCooldownOk and cSellRaw and cSellScore >= minScoreC
+if engineCBuy or engineCSell
+    lastCSignalBar := bar_index
+
+// =============================================================================
+// Engine D - Range Expansion
+// =============================================================================
+float candidateRangeHigh = ta.highest(high[1], rangeBars)
+float candidateRangeLow = ta.lowest(low[1], rangeBars)
+float candidateRangeHeight = candidateRangeHigh - candidateRangeLow
+float rangeAtrBase = ta.sma(atr, rangeBars)[1]
+int highReactions = 0
+int lowReactions = 0
+for i = 1 to rangeBars
+    highReactions += high[i] >= candidateRangeHigh - candidateRangeHeight * rangeReactionTolerance ? 1 : 0
+    lowReactions += low[i] <= candidateRangeLow + candidateRangeHeight * rangeReactionTolerance ? 1 : 0
+bool rangeHeightOk = candidateRangeHeight >= rangeAtrBase * rangeMinAtr and candidateRangeHeight <= rangeAtrBase * rangeMaxAtr
+bool rangeNotTrending = math.abs(close[1] - close[rangeBars]) <= candidateRangeHeight * 0.70
+bool rangeQuality = rangeHeightOk and rangeNotTrending and highReactions >= rangeMinReactions and lowReactions >= rangeMinReactions
+bool bullRangeBreak = executionAllowed and executionConfirmed and rangeQuality and close > candidateRangeHigh and close[1] <= candidateRangeHigh and math.abs(close - open) >= atr * rangeBreakBodyAtr
+bool bearRangeBreak = executionAllowed and executionConfirmed and rangeQuality and close < candidateRangeLow and close[1] >= candidateRangeLow and math.abs(close - open) >= atr * rangeBreakBodyAtr
+bool volumeOk = not useVolumeFilter or na(volume) or volume > ta.sma(volume, 20)
+var int rangeBreakDir = 0
+var int rangeBreakBar = na
+var float armedRangeHigh = na
+var float armedRangeLow = na
+var float armedRangeHeight = na
+var int armedRangeScore = 0
+if bullRangeBreak and volumeOk
+    rangeBreakDir := 1
+    rangeBreakBar := bar_index
+    armedRangeHigh := candidateRangeHigh
+    armedRangeLow := candidateRangeLow
+    armedRangeHeight := candidateRangeHeight
+    armedRangeScore := 20 + 20 + (bullHtfAligned ? 15 : 0) + (localBullFvg ? 15 : 0) + (not na(nearestLiquidityAbove) ? 10 : 0)
+if bearRangeBreak and volumeOk
+    rangeBreakDir := -1
+    rangeBreakBar := bar_index
+    armedRangeHigh := candidateRangeHigh
+    armedRangeLow := candidateRangeLow
+    armedRangeHeight := candidateRangeHeight
+    armedRangeScore := 20 + 20 + (bearHtfAligned ? 15 : 0) + (localBearFvg ? 15 : 0) + (not na(nearestLiquidityBelow) ? 10 : 0)
+bool bullRetest = rangeBreakDir == 1 and bar_index > rangeBreakBar and low <= armedRangeHigh and close > armedRangeHigh
+bool bearRetest = rangeBreakDir == -1 and bar_index > rangeBreakBar and high >= armedRangeLow and close < armedRangeLow
+bool dBuyRaw = rangeEntryMethod == "Breakout Close" ? bullRangeBreak : rangeEntryMethod == "Breakout FVG" ? bullRangeBreak and localBullFvg : bullRetest
+bool dSellRaw = rangeEntryMethod == "Breakout Close" ? bearRangeBreak : rangeEntryMethod == "Breakout FVG" ? bearRangeBreak and localBearFvg : bearRetest
+int dBuyScore = dBuyRaw ? armedRangeScore + (bullRetest ? 20 : 0) : 0
+int dSellScore = dSellRaw ? armedRangeScore + (bearRetest ? 20 : 0) : 0
+var int lastDSignalBar = na
+bool dCooldownOk = na(lastDSignalBar) or bar_index - lastDSignalBar > signalCooldown
+bool engineDBuy = enableD and executionAllowed and executionConfirmed and dCooldownOk and dBuyRaw and dBuyScore >= minScoreD
+bool engineDSell = enableD and executionAllowed and executionConfirmed and dCooldownOk and dSellRaw and dSellScore >= minScoreD
+if engineDBuy or engineDSell
+    lastDSignalBar := bar_index
+    rangeBreakDir := 0
+
+var box rangeBox = na
+if enableD and rangeQuality and (na(rangeBox) or barstate.islast)
+    if not na(rangeBox)
+        box.delete(rangeBox)
+    rangeBox := box.new(bar_index - rangeBars, candidateRangeHigh, bar_index, candidateRangeLow, border_color=color.new(color.orange, cleanChart ? 35 : 0), bgcolor=color.new(color.orange, cleanChart ? 97 : 88), text=cleanChart ? "" : "ACTIVE RANGE", text_color=color.orange, text_size=size.tiny)
+if (not enableD or not rangeQuality) and not na(rangeBox)
+    box.delete(rangeBox)
+    rangeBox := na
+
+// =============================================================================
+// OR aggregation, scores, conflict resolution, confidence and Stop Loss
+// =============================================================================
+int buyCount = (engineABuy ? 1 : 0) + (engineBBuy ? 1 : 0) + (engineCBuy ? 1 : 0) + (engineDBuy ? 1 : 0)
+int sellCount = (engineASell ? 1 : 0) + (engineBSell ? 1 : 0) + (engineCSell ? 1 : 0) + (engineDSell ? 1 : 0)
+int bestBuyScore = math.max(math.max(engineABuy ? aBuyScore : 0, engineBBuy ? bBuyScore : 0), math.max(engineCBuy ? cBuyScore : 0, engineDBuy ? dBuyScore : 0))
+int bestSellScore = math.max(math.max(engineASell ? aSellScore : 0, engineBSell ? bSellScore : 0), math.max(engineCSell ? cSellScore : 0, engineDSell ? dSellScore : 0))
+bool conflict = buyCount > 0 and sellCount > 0 and math.abs(bestBuyScore - bestSellScore) < 15
+int finalDirection = conflict ? 0 : buyCount > 0 and sellCount > 0 ? (bestBuyScore > bestSellScore ? 1 : -1) : buyCount > 0 ? 1 : sellCount > 0 ? -1 : 0
+int directionCount = finalDirection == 1 ? buyCount : finalDirection == -1 ? sellCount : 0
+if showOnlyMulti and directionCount < 2
+    finalDirection := 0
+string bestEngine = "NONE"
+int bestScore = finalDirection == 1 ? bestBuyScore : finalDirection == -1 ? bestSellScore : math.max(bestBuyScore, bestSellScore)
+if finalDirection == 1
+    bestEngine := engineABuy and aBuyScore == bestBuyScore ? "A - MSB" : engineBBuy and bBuyScore == bestBuyScore ? "B - CR" : engineCBuy and cBuyScore == bestBuyScore ? "C - ZS" : "D - RE"
+if finalDirection == -1
+    bestEngine := engineASell and aSellScore == bestSellScore ? "A - MSB" : engineBSell and bSellScore == bestSellScore ? "B - CR" : engineCSell and cSellScore == bestSellScore ? "C - ZS" : "D - RE"
+bool finalHtfAligned = finalDirection == 1 ? bullHtfAligned : finalDirection == -1 ? bearHtfAligned : false
+bool qualityFourWay = finalHtfAligned and (finalDirection == 1 ? recentSellSweep : recentBuySweep) and (finalDirection == 1 ? bullStructureConfirm : bearStructureConfirm) and (finalDirection == 1 ? inBullEntryZone : inBearEntryZone)
+int stars = finalDirection == 0 ? 0 : directionCount >= 3 or (directionCount >= 2 and finalHtfAligned) or qualityFourWay ? 3 : directionCount >= 2 or finalHtfAligned ? 2 : 1
+string confidenceText = stars == 3 ? "★★★" : stars == 2 ? "★★" : stars == 1 ? "★" : "-"
+
+float setupStop = na
+if finalDirection == 1
+    setupStop := bestEngine == "B - CR" ? pendingRejectLow - atr * slBufferAtr : bestEngine == "D - RE" ? math.min(low, armedRangeHigh) - atr * slBufferAtr : not na(lastSellSweepLow) ? lastSellSweepLow - atr * slBufferAtr : bullEntryBottom - atr * slBufferAtr
+if finalDirection == -1
+    setupStop := bestEngine == "B - CR" ? pendingRejectHigh + atr * slBufferAtr : bestEngine == "D - RE" ? math.max(high, armedRangeLow) + atr * slBufferAtr : not na(lastBuySweepHigh) ? lastBuySweepHigh + atr * slBufferAtr : bearEntryTop + atr * slBufferAtr
+var int activeDirection = 0
+var string activeEngine = "NONE"
+var int activeScore = 0
+var string activeConfidence = "-"
+var float activeStop = na
+bool finalBuy = finalDirection == 1
+bool finalSell = finalDirection == -1
+bool activeInvalidated = activeDirection == 1 and not na(activeStop) and close < activeStop or activeDirection == -1 and not na(activeStop) and close > activeStop
+if activeInvalidated
+    activeDirection := 0
+    activeEngine := "NONE"
+    activeScore := 0
+    activeConfidence := "-"
+    activeStop := na
+if finalBuy or finalSell
+    activeDirection := finalDirection
+    activeEngine := bestEngine
+    activeScore := bestScore
+    activeConfidence := confidenceText
+    activeStop := setupStop
+    string compactText = directionCount >= 2 ? (finalBuy ? "BUY MULTI" : "SELL MULTI") : finalBuy ? "BUY " + str.substring(bestEngine, 0, 1) : "SELL " + str.substring(bestEngine, 0, 1)
+    label.new(bar_index, finalBuy ? low : high, compactText, style=finalBuy ? label.style_label_up : label.style_label_down, color=finalBuy ? color.lime : color.red, textcolor=finalBuy ? color.black : color.white, size=size.tiny)
+
+var line stopLossLine = na
+if (not showStopLoss or activeInvalidated) and not na(stopLossLine)
+    line.delete(stopLossLine)
+    stopLossLine := na
+if (finalBuy or finalSell) and showStopLoss and not na(setupStop)
+    if not na(stopLossLine)
+        line.delete(stopLossLine)
+    stopLossLine := line.new(bar_index, setupStop, bar_index + 1, setupStop, extend=extend.right, color=color.red, width=2)
+
+// Optional major structure labels. Pivots appear only after right-side confirmation.
+if showMajorStructure and not na(localPH)
+    label.new(bar_index - localPivotStrength, localPH, na(previousLocalPH) ? "H" : localPH > previousLocalPH ? "HH" : "LH", style=label.style_label_down, color=color.new(color.gray, 75), textcolor=color.white, size=size.tiny)
+if showMajorStructure and not na(localPL)
+    label.new(bar_index - localPivotStrength, localPL, na(previousLocalPL) ? "L" : localPL > previousLocalPL ? "HL" : "LL", style=label.style_label_up, color=color.new(color.gray, 75), textcolor=color.white, size=size.tiny)
+
+// =============================================================================
+// Dashboard - current rule-based state
+// =============================================================================
+string biasSummary = "D " + f_bias_short(dBias) + " | H4 " + f_bias_short(h4Bias) + " | H1 " + f_bias_short(h1Bias)
+string liquidityStatus = recentSellSweep and recentBuySweep ? "BOTH - WAIT" : recentSellSweep ? "SELL-SIDE SWEPT" : recentBuySweep ? "BUY-SIDE SWEPT" : "NO SWEEP"
+float activeLiquidityTarget = activeDirection == 1 ? nearestLiquidityAbove : activeDirection == -1 ? nearestLiquidityBelow : na
+string finalStatus = conflict ? "CONFLICT - WAIT" : f_dir_text(activeDirection)
+string liquiditySummary = liquidityStatus + " | TGT " + f_price(activeLiquidityTarget)
+string signalSummary = finalStatus + " | " + activeEngine
+string strengthSummary = activeConfidence + "  " + str.tostring(activeScore) + "/100"
+var table dashboard = table.new(position.bottom_right, 2, 7, border_width=1)
+if barstate.islast
+    if showDashboard
+        color header = color.rgb(35, 75, 170)
+        color panel = color.rgb(50, 52, 62)
+        color key = color.silver
+        table.cell(dashboard, 0, 0, "KSL", bgcolor=header, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 1, 0, "STATUS", bgcolor=header, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow, text_size=size.small)
+        table.cell(dashboard, 0, 2, "Bias", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 3, liquiditySummary, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray, text_size=size.small)
+        table.cell(dashboard, 0, 4, "Signal", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 4, signalSummary, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection), text_size=size.small)
+        table.cell(dashboard, 0, 5, "Strength", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 5, strengthSummary, bgcolor=panel, text_color=color.yellow, text_size=size.small)
+        table.cell(dashboard, 0, 6, "Stop Loss", bgcolor=panel, text_color=key, text_size=size.small)
+        table.cell(dashboard, 1, 6, f_price(activeStop), bgcolor=panel, text_color=color.red, text_size=size.small)
+    else
+        table.clear(dashboard, 0, 0, 1, 6)
+
+// =============================================================================
+// Debug - one last-bar label only
+// =============================================================================
+var label debugLabel = na
+if barstate.islast
+    if not na(debugLabel)
+        label.delete(debugLabel)
+        debugLabel := na
+    if debugMode
+        string reasonA = not bullishStrongActive and not bearishStrongActive ? "No Strong MSB" : not recentSellSweep and not recentBuySweep ? "No recent sweep" : "Waiting zone/structure"
+        string reasonB = not bullLocation and not bearLocation ? "No valid HTF location" : pendingRejectDir == 0 ? "No valid rejection" : "Waiting confirmation"
+        string reasonC = not recentZoneSellSweep and not recentZoneBuySweep ? "No zone sweep" : "Sweep occurred; waiting reclaim"
+        string reasonD = not rangeQuality ? "Range quality too low" : "Waiting breakout/retest"
+        debugLabel := label.new(bar_index, high + atr * 2.0, "DEBUG\nA: " + reasonA + "\nB: " + reasonB + "\nC: " + reasonC + "\nD: " + reasonD, style=label.style_label_down, color=color.new(color.black, 10), textcolor=color.white, size=size.small)
+
+// =============================================================================
+// Alerts
+// =============================================================================
+bool multiBuy = finalBuy and buyCount >= 2
+bool multiSell = finalSell and sellCount >= 2
+alertcondition(engineABuy, "Strong MSB BUY", "KSL {{ticker}} {{interval}} BUY - Strong MSB at {{close}}")
+alertcondition(engineASell, "Strong MSB SELL", "KSL {{ticker}} {{interval}} SELL - Strong MSB at {{close}}")
+alertcondition(engineBBuy, "Candle Rejection BUY", "KSL {{ticker}} {{interval}} BUY - Candle Rejection at {{close}}")
+alertcondition(engineBSell, "Candle Rejection SELL", "KSL {{ticker}} {{interval}} SELL - Candle Rejection at {{close}}")
+alertcondition(engineCBuy, "Zone Sweep BUY", "KSL {{ticker}} {{interval}} BUY - Zone Sweep at {{close}}")
+alertcondition(engineCSell, "Zone Sweep SELL", "KSL {{ticker}} {{interval}} SELL - Zone Sweep at {{close}}")
+alertcondition(engineDBuy, "Range Expansion BUY", "KSL {{ticker}} {{interval}} BUY - Range Expansion at {{close}}")
+alertcondition(engineDSell, "Range Expansion SELL", "KSL {{ticker}} {{interval}} SELL - Range Expansion at {{close}}")
+alertcondition(multiBuy, "Multi-engine BUY", "KSL {{ticker}} {{interval}} BUY - Multi-engine confirmation at {{close}}")
+alertcondition(multiSell, "Multi-engine SELL", "KSL {{ticker}} {{interval}} SELL - Multi-engine confirmation at {{close}}")
+alertcondition(buySideSweep, "Buy-side liquidity sweep", "KSL {{ticker}} {{interval}} BUY-SIDE SWEEP at {{close}}")
+alertcondition(sellSideSweep, "Sell-side liquidity sweep", "KSL {{ticker}} {{interval}} SELL-SIDE SWEEP at {{close}}")
+alertcondition(enterBullZone, "Price enters bullish zone", "KSL {{ticker}} entered bullish zone at {{close}}")
+alertcondition(enterBearZone, "Price enters bearish zone", "KSL {{ticker}} entered bearish zone at {{close}}")
+alertcondition(anyFvgMitigation, "FVG mitigation", "KSL {{ticker}} {{interval}} FVG mitigated at {{close}}")
+alertcondition(conflict, "Conflict - WAIT", "KSL {{ticker}} {{interval}} CONFLICT - WAIT")
+if enableDynamicAlerts and (finalBuy or finalSell)
+    float alertLiquidityTarget = finalDirection == 1 ? nearestLiquidityAbove : nearestLiquidityBelow
+    string dynamicMessage = "KSL | " + syminfo.ticker + " | TF " + timeframe.period + " | " + f_dir_text(finalDirection) + " | " + bestEngine + " | " + confidenceText + " | Score " + str.tostring(bestScore) + "/100 | Liquidity " + liquidityStatus + " | Target liquidity " + f_price(alertLiquidityTarget) + " | SL " + f_price(setupStop)
+    alert(dynamicMessage, alert.freq_once_per_bar_close)
