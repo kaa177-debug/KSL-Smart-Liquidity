@@ -43,7 +43,7 @@ Each engine has a 0-100 rule score and an independent minimum. `BALANCED` is the
 
 ## Dashboard
 
-The tiny 7-row status panel reports symbol/timeframe, compact D/H4/H1 bias, recent liquidity sweep and target, active signal/engine, strength and Stop Loss. Clean Chart Mode hides text from level lines and makes zones nearly transparent.
+The tiny 7-row status panel defaults to the bottom-right and reports symbol/timeframe, compact D/H4/H1 bias, recent liquidity sweep and target, active signal/engine, strength and Stop Loss. Clean Chart Mode hides text from level lines and makes zones nearly transparent.
 
 ## Use on XAUUSD M5
 

@@ -91,7 +91,7 @@ slBufferAtr = input.float(0.20, "Invalidation buffer (ATR)", minval=0.0, maxval=
 showStopLoss = input.bool(true, "Show latest Stop Loss", group=G_RISK)
 
 showDashboard = input.bool(true, "Show dashboard", group=G_DASH)
-dashboardPosition = input.string("Top Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DASH)
+dashboardPosition = input.string("Bottom Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DASH)
 
 enableDynamicAlerts = input.bool(true, "Enable dynamic final-signal alert()", group=G_ALERT)
 cleanChart = input.bool(true, "Clean Chart Mode", group=G_VIS)

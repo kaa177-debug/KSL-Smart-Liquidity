@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3 - 2026-08-02
+
+- Changed the default dashboard position to Bottom Right so it does not cover the indicator legend.
+
 ## 1.0.2 - 2026-08-02
 
 - Reduced the dashboard to seven tiny decision rows.

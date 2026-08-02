@@ -56,6 +56,7 @@ if ($pine -notmatch 'barstate\.isconfirmed') { throw 'Missing confirmed executio
 if ($pine -notmatch 'time\[1\]') { throw 'HTF pack does not expose a closed timestamp.' }
 if ($pine -match '"Entry"|"TP1"|"TP2"|"TP3"') { throw 'Dashboard must not contain Entry or fixed TP rows.' }
 if ($pine -notmatch 'table\.new\(f_dash_pos\(dashboardPosition\), 2, 7') { throw 'Expected compact 7-row dashboard.' }
+if ($pine -notmatch 'dashboardPosition = input\.string\("Bottom Right"') { throw 'Dashboard must default to Bottom Right.' }
 if ($pine -notmatch 'var line stopLossLine') { throw 'Expected one current Stop Loss line.' }
 
 $openParen = ([regex]::Matches($pine, '\(')).Count
