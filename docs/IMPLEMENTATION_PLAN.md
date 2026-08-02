@@ -9,7 +9,7 @@ This file records the requested single-task development phases and their deliver
 5. **Engine C:** implemented independent zone sweep, reclaim and aggressive/balanced/conservative confirmation.
 6. **Engine D:** implemented range quality, reaction counts, displacement breakout, three entry methods and range state.
 7. **Aggregation:** implemented independent scores, OR logic, multi-engine count, confidence, cooldowns and 15-point conflict handling.
-8. **Interface:** implemented compact labels, current range, latest trade levels, 24-row dashboard, 16 named alert conditions, dynamic final alerts and one-label Debug Mode.
+8. **Interface:** implemented compact labels, current range, one current Stop Loss line, compact 11-row dashboard, 16 named alert conditions, dynamic final alerts and one-label Debug Mode.
 9. **Compile-oriented review:** added a validator for required files, Pine v6, delimiter balance, HTF call count, alert count and forbidden repaint constructs.
 10. **Repainting review:** all HTF expressions use prior closed values with `lookahead_off`; execution uses confirmed bars; no future/negative indexing or lower-timeframe request is present.
 11. **Performance review:** four cached security calls, bounded loops (maximum 40 bars), one active FVG per direction/timeframe, one demand/supply/range, and capped historical trade lines.

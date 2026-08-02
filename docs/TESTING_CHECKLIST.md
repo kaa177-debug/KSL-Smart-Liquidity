@@ -19,7 +19,7 @@
 - Toggle each engine off separately and confirm its status becomes `DISABLED`.
 - Enable `Show Only Multi-Engine Opportunities` and confirm single-engine labels are suppressed.
 - Find a two-sided bar or use Debug Mode to inspect conflict behavior; a score difference below 15 must show `CONFLICT - WAIT`.
-- Verify latest Entry/SL/TP replaces the prior set when historical levels are off.
+- Verify a new active signal replaces the previous Stop Loss line and invalidation removes it.
 
 ## Engine spot checks
 

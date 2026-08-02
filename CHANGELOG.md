@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 - 2026-08-02
+
+- Reduced the dashboard from 24 rows to 11 decision-focused rows.
+- Removed Entry and TP1/TP2/TP3 from the dashboard, chart lines and dynamic alert.
+- Replaced historical trade-level objects with one current structural Stop Loss line.
+- Kept recent liquidity sweep and nearest directional liquidity target as the primary target context.
+
 ## 1.0.0 - 2026-08-02
 
 - Created the original Pine Script v6 `KSL Multi-Strategy Liquidity Pro` project.

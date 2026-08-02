@@ -18,7 +18,7 @@ string G_A = "7. Engine A - Strong MSB"
 string G_B = "8. Engine B - Candle Rejection"
 string G_C = "9. Engine C - Zone Sweep"
 string G_D = "10. Engine D - Range Expansion"
-string G_RISK = "11. Risk and Targets"
+string G_RISK = "11. Risk"
 string G_DASH = "12. Dashboard"
 string G_ALERT = "13. Alerts"
 string G_VIS = "14. Visuals"
@@ -88,12 +88,7 @@ useVolumeFilter = input.bool(false, "Use volume filter", group=G_D)
 minScoreDInput = input.int(75, "CUSTOM minimum score", minval=0, maxval=100, group=G_D)
 
 slBufferAtr = input.float(0.20, "Invalidation buffer (ATR)", minval=0.0, maxval=2.0, step=0.05, group=G_RISK)
-tp1R = input.float(1.0, "TP1 risk multiple", minval=0.5, maxval=5.0, step=0.25, group=G_RISK)
-tp2R = input.float(2.0, "TP2 risk multiple", minval=1.0, maxval=8.0, step=0.25, group=G_RISK)
-tp3R = input.float(3.0, "TP3 fallback risk multiple", minval=1.5, maxval=12.0, step=0.25, group=G_RISK)
-showTradeLevels = input.bool(true, "Show latest Entry/SL/TP", group=G_RISK)
-showHistoricalTradeLevels = input.bool(false, "Show Historical Trade Levels", group=G_RISK)
-maxHistoricalSetups = input.int(5, "Maximum historical setups", minval=1, maxval=12, group=G_RISK)
+showStopLoss = input.bool(true, "Show latest Stop Loss", group=G_RISK)
 
 showDashboard = input.bool(true, "Show dashboard", group=G_DASH)
 dashboardPosition = input.string("Top Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=G_DASH)
@@ -212,7 +207,7 @@ f_manage_fvg(box activeBox, bool enabled, bool newGap, float top, float bottom, 
 
 f_in_box(box activeBox) => not na(activeBox) and high >= box.get_bottom(activeBox) and low <= box.get_top(activeBox)
 f_price(float value) => na(value) ? "N/A" : str.tostring(value, format.mintick)
-f_engine_status(bool enabled, bool buy, bool sell) => not enabled ? "DISABLED" : buy ? "BUY" : sell ? "SELL" : "WAIT"
+f_engine_short(bool enabled, bool buy, bool sell) => not enabled ? "OFF" : buy ? "BUY" : sell ? "SELL" : "WAIT"
 f_dash_pos(string value) => value == "Top Left" ? position.top_left : value == "Bottom Right" ? position.bottom_right : value == "Bottom Left" ? position.bottom_left : position.top_right
 
 // =============================================================================
@@ -727,7 +722,7 @@ if (not enableD or not rangeQuality) and not na(rangeBox)
     rangeBox := na
 
 // =============================================================================
-// OR aggregation, scores, conflict resolution, confidence and trade levels
+// OR aggregation, scores, conflict resolution, confidence and Stop Loss
 // =============================================================================
 int buyCount = (engineABuy ? 1 : 0) + (engineBBuy ? 1 : 0) + (engineCBuy ? 1 : 0) + (engineDBuy ? 1 : 0)
 int sellCount = (engineASell ? 1 : 0) + (engineBSell ? 1 : 0) + (engineCSell ? 1 : 0) + (engineDSell ? 1 : 0)
@@ -749,56 +744,42 @@ bool qualityFourWay = finalHtfAligned and (finalDirection == 1 ? recentSellSweep
 int stars = finalDirection == 0 ? 0 : directionCount >= 3 or (directionCount >= 2 and finalHtfAligned) or qualityFourWay ? 3 : directionCount >= 2 or finalHtfAligned ? 2 : 1
 string confidenceText = stars == 3 ? "★★★" : stars == 2 ? "★★" : stars == 1 ? "★" : "-"
 
-float setupEntry = close
 float setupStop = na
 if finalDirection == 1
     setupStop := bestEngine == "B - CR" ? pendingRejectLow - atr * slBufferAtr : bestEngine == "D - RE" ? math.min(low, armedRangeHigh) - atr * slBufferAtr : not na(lastSellSweepLow) ? lastSellSweepLow - atr * slBufferAtr : bullEntryBottom - atr * slBufferAtr
 if finalDirection == -1
     setupStop := bestEngine == "B - CR" ? pendingRejectHigh + atr * slBufferAtr : bestEngine == "D - RE" ? math.max(high, armedRangeLow) + atr * slBufferAtr : not na(lastBuySweepHigh) ? lastBuySweepHigh + atr * slBufferAtr : bearEntryTop + atr * slBufferAtr
-float setupRisk = not na(setupStop) ? math.abs(setupEntry - setupStop) : na
-float setupTP1 = finalDirection == 1 ? setupEntry + setupRisk * tp1R : finalDirection == -1 ? setupEntry - setupRisk * tp1R : na
-float setupTP2 = finalDirection == 1 ? setupEntry + setupRisk * tp2R : finalDirection == -1 ? setupEntry - setupRisk * tp2R : na
-float fallbackTP3 = finalDirection == 1 ? setupEntry + setupRisk * tp3R : finalDirection == -1 ? setupEntry - setupRisk * tp3R : na
-float setupTP3 = finalDirection == 1 and not na(nearestLiquidityAbove) and nearestLiquidityAbove > setupTP2 ? nearestLiquidityAbove : finalDirection == -1 and not na(nearestLiquidityBelow) and nearestLiquidityBelow < setupTP2 ? nearestLiquidityBelow : fallbackTP3
 var int activeDirection = 0
 var string activeEngine = "NONE"
 var int activeScore = 0
 var string activeConfidence = "-"
-var float activeEntry = na
 var float activeStop = na
-var float activeTP1 = na
-var float activeTP2 = na
-var float activeTP3 = na
 bool finalBuy = finalDirection == 1
 bool finalSell = finalDirection == -1
+bool activeInvalidated = activeDirection == 1 and not na(activeStop) and close < activeStop or activeDirection == -1 and not na(activeStop) and close > activeStop
+if activeInvalidated
+    activeDirection := 0
+    activeEngine := "NONE"
+    activeScore := 0
+    activeConfidence := "-"
+    activeStop := na
 if finalBuy or finalSell
     activeDirection := finalDirection
     activeEngine := bestEngine
     activeScore := bestScore
     activeConfidence := confidenceText
-    activeEntry := setupEntry
     activeStop := setupStop
-    activeTP1 := setupTP1
-    activeTP2 := setupTP2
-    activeTP3 := setupTP3
     string compactText = directionCount >= 2 ? (finalBuy ? "BUY MULTI" : "SELL MULTI") : finalBuy ? "BUY " + str.substring(bestEngine, 0, 1) : "SELL " + str.substring(bestEngine, 0, 1)
     label.new(bar_index, finalBuy ? low : high, compactText, style=finalBuy ? label.style_label_up : label.style_label_down, color=finalBuy ? color.lime : color.red, textcolor=finalBuy ? color.black : color.white, size=size.tiny)
 
-var line[] tradeLines = array.new_line()
-if (finalBuy or finalSell) and showTradeLevels and not na(setupStop)
-    if not showHistoricalTradeLevels
-        while array.size(tradeLines) > 0
-            line.delete(array.shift(tradeLines))
-    array.push(tradeLines, line.new(bar_index, setupEntry, bar_index + 1, setupEntry, extend=extend.right, color=color.white, width=2))
-    array.push(tradeLines, line.new(bar_index, setupStop, bar_index + 1, setupStop, extend=extend.right, color=color.red, width=2))
-    array.push(tradeLines, line.new(bar_index, setupTP1, bar_index + 1, setupTP1, extend=extend.right, color=color.lime))
-    array.push(tradeLines, line.new(bar_index, setupTP2, bar_index + 1, setupTP2, extend=extend.right, color=color.green))
-    array.push(tradeLines, line.new(bar_index, setupTP3, bar_index + 1, setupTP3, extend=extend.right, color=color.aqua))
-    while array.size(tradeLines) > maxHistoricalSetups * 5
-        line.delete(array.shift(tradeLines))
-if not showTradeLevels and array.size(tradeLines) > 0
-    while array.size(tradeLines) > 0
-        line.delete(array.shift(tradeLines))
+var line stopLossLine = na
+if (not showStopLoss or activeInvalidated) and not na(stopLossLine)
+    line.delete(stopLossLine)
+    stopLossLine := na
+if (finalBuy or finalSell) and showStopLoss and not na(setupStop)
+    if not na(stopLossLine)
+        line.delete(stopLossLine)
+    stopLossLine := line.new(bar_index, setupStop, bar_index + 1, setupStop, extend=extend.right, color=color.red, width=2)
 
 // Optional major structure labels. Pivots appear only after right-side confirmation.
 if showMajorStructure and not na(localPH)
@@ -809,9 +790,12 @@ if showMajorStructure and not na(localPL)
 // =============================================================================
 // Dashboard - current rule-based state
 // =============================================================================
-string nearestFvgText = not na(h1BullBox) ? "H1 BULL " + f_price(box.get_bottom(h1BullBox)) : not na(h1BearBox) ? "H1 BEAR " + f_price(box.get_top(h1BearBox)) : not na(h4BullBox) ? "H4 BULL " + f_price(box.get_bottom(h4BullBox)) : not na(h4BearBox) ? "H4 BEAR " + f_price(box.get_top(h4BearBox)) : "N/A"
-string finalStatus = conflict ? "CONFLICT - WAIT" : f_dir_text(finalDirection)
-var table dashboard = table.new(f_dash_pos(dashboardPosition), 2, 24, border_width=1)
+string biasSummary = "D " + f_bias_text(dBias) + " | H4 " + f_bias_text(h4Bias) + " | H1 " + f_bias_text(h1Bias)
+string liquidityStatus = recentSellSweep and recentBuySweep ? "BOTH - WAIT" : recentSellSweep ? "SELL-SIDE SWEPT" : recentBuySweep ? "BUY-SIDE SWEPT" : "NO SWEEP"
+float activeLiquidityTarget = activeDirection == 1 ? nearestLiquidityAbove : activeDirection == -1 ? nearestLiquidityBelow : na
+string engineSummary = "A " + f_engine_short(enableA, engineABuy, engineASell) + " | B " + f_engine_short(enableB, engineBBuy, engineBSell) + " | C " + f_engine_short(enableC, engineCBuy, engineCSell) + " | D " + f_engine_short(enableD, engineDBuy, engineDSell)
+string finalStatus = conflict ? "CONFLICT - WAIT" : f_dir_text(activeDirection)
+var table dashboard = table.new(f_dash_pos(dashboardPosition), 2, 11, border_width=1)
 if barstate.islast
     if showDashboard
         color header = color.rgb(35, 75, 170)
@@ -819,54 +803,28 @@ if barstate.islast
         color key = color.silver
         table.cell(dashboard, 0, 0, "KSL MULTI-STRATEGY", bgcolor=header, text_color=color.white)
         table.cell(dashboard, 1, 0, "KSL CURRENT STATUS", bgcolor=header, text_color=color.white)
-        table.cell(dashboard, 0, 1, "Symbol", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 1, syminfo.ticker, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 2, "Chart TF", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 2, timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow)
-        table.cell(dashboard, 0, 3, "Daily", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 3, f_bias_text(dBias), bgcolor=panel, text_color=f_status_color(dBias))
-        table.cell(dashboard, 0, 4, "H4", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 4, f_bias_text(h4Bias), bgcolor=panel, text_color=f_status_color(h4Bias))
-        table.cell(dashboard, 0, 5, "H1", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 5, f_bias_text(h1Bias), bgcolor=panel, text_color=f_status_color(h1Bias))
-        table.cell(dashboard, 0, 6, "Liquidity Above", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 6, f_price(nearestLiquidityAbove), bgcolor=panel, text_color=color.aqua)
-        table.cell(dashboard, 0, 7, "Liquidity Below", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 7, f_price(nearestLiquidityBelow), bgcolor=panel, text_color=color.aqua)
-        table.cell(dashboard, 0, 8, "Resistance", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 8, f_price(nearestResistance), bgcolor=panel, text_color=color.red)
-        table.cell(dashboard, 0, 9, "Support", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 9, f_price(nearestSupport), bgcolor=panel, text_color=color.lime)
-        table.cell(dashboard, 0, 10, "Nearest HTF FVG", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 10, nearestFvgText, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 11, "Engine A", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 11, f_engine_status(enableA, engineABuy, engineASell), bgcolor=panel, text_color=engineABuy ? color.lime : engineASell ? color.red : enableA ? color.yellow : color.gray)
-        table.cell(dashboard, 0, 12, "Engine B", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 12, f_engine_status(enableB, engineBBuy, engineBSell), bgcolor=panel, text_color=engineBBuy ? color.lime : engineBSell ? color.red : enableB ? color.yellow : color.gray)
-        table.cell(dashboard, 0, 13, "Engine C", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 13, f_engine_status(enableC, engineCBuy, engineCSell), bgcolor=panel, text_color=engineCBuy ? color.lime : engineCSell ? color.red : enableC ? color.yellow : color.gray)
-        table.cell(dashboard, 0, 14, "Engine D", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 14, f_engine_status(enableD, engineDBuy, engineDSell), bgcolor=panel, text_color=engineDBuy ? color.lime : engineDSell ? color.red : enableD ? color.yellow : color.gray)
-        table.cell(dashboard, 0, 15, "Best Engine", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 15, activeEngine, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 16, "Final Direction", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 16, finalStatus, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(finalDirection))
-        table.cell(dashboard, 0, 17, "Confidence", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 17, activeConfidence, bgcolor=panel, text_color=color.yellow)
-        table.cell(dashboard, 0, 18, "Best Score", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 18, str.tostring(activeScore) + "/100", bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 19, "Entry", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 19, f_price(activeEntry), bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 20, "Invalidation", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 20, f_price(activeStop), bgcolor=panel, text_color=color.red)
-        table.cell(dashboard, 0, 21, "TP1", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 21, f_price(activeTP1), bgcolor=panel, text_color=color.lime)
-        table.cell(dashboard, 0, 22, "TP2", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 22, f_price(activeTP2), bgcolor=panel, text_color=color.green)
-        table.cell(dashboard, 0, 23, "TP3", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 23, f_price(activeTP3), bgcolor=panel, text_color=color.aqua)
+        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow)
+        table.cell(dashboard, 0, 2, "HTF Bias", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white)
+        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 3, liquidityStatus, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray)
+        table.cell(dashboard, 0, 4, "Liquidity Target", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 4, f_price(activeLiquidityTarget), bgcolor=panel, text_color=color.aqua)
+        table.cell(dashboard, 0, 5, "Engines", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 5, engineSummary, bgcolor=panel, text_color=color.white)
+        table.cell(dashboard, 0, 6, "Best Engine", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 6, activeEngine, bgcolor=panel, text_color=color.white)
+        table.cell(dashboard, 0, 7, "Signal", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 7, finalStatus, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection))
+        table.cell(dashboard, 0, 8, "Confidence", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 8, activeConfidence, bgcolor=panel, text_color=color.yellow)
+        table.cell(dashboard, 0, 9, "Score", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 9, str.tostring(activeScore) + "/100", bgcolor=panel, text_color=color.white)
+        table.cell(dashboard, 0, 10, "Stop Loss", bgcolor=panel, text_color=key)
+        table.cell(dashboard, 1, 10, f_price(activeStop), bgcolor=panel, text_color=color.red)
     else
-        table.clear(dashboard, 0, 0, 1, 23)
+        table.clear(dashboard, 0, 0, 1, 10)
 
 // =============================================================================
 // Debug - one last-bar label only
@@ -905,5 +863,6 @@ alertcondition(enterBearZone, "Price enters bearish zone", "KSL {{ticker}} enter
 alertcondition(anyFvgMitigation, "FVG mitigation", "KSL {{ticker}} {{interval}} FVG mitigated at {{close}}")
 alertcondition(conflict, "Conflict - WAIT", "KSL {{ticker}} {{interval}} CONFLICT - WAIT")
 if enableDynamicAlerts and (finalBuy or finalSell)
-    string dynamicMessage = "KSL | " + syminfo.ticker + " | TF " + timeframe.period + " | " + f_dir_text(finalDirection) + " | " + bestEngine + " | " + confidenceText + " | Score " + str.tostring(bestScore) + "/100 | Bias D/H4/H1 " + f_bias_text(dBias) + "/" + f_bias_text(h4Bias) + "/" + f_bias_text(h1Bias) + " | Entry " + f_price(setupEntry) + " | SL " + f_price(setupStop) + " | TP1 " + f_price(setupTP1) + " | TP2 " + f_price(setupTP2) + " | TP3 " + f_price(setupTP3)
+    float alertLiquidityTarget = finalDirection == 1 ? nearestLiquidityAbove : nearestLiquidityBelow
+    string dynamicMessage = "KSL | " + syminfo.ticker + " | TF " + timeframe.period + " | " + f_dir_text(finalDirection) + " | " + bestEngine + " | " + confidenceText + " | Score " + str.tostring(bestScore) + "/100 | Liquidity " + liquidityStatus + " | Target liquidity " + f_price(alertLiquidityTarget) + " | SL " + f_price(setupStop)
     alert(dynamicMessage, alert.freq_once_per_bar_close)

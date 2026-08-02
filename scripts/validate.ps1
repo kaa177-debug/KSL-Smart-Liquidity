@@ -54,6 +54,9 @@ if ($alertCount -lt 16) { throw "Expected at least 16 alertcondition calls; foun
 if ($pine -notmatch 'math\.abs\(bestBuyScore - bestSellScore\) < 15') { throw 'Missing 15-point conflict rule.' }
 if ($pine -notmatch 'barstate\.isconfirmed') { throw 'Missing confirmed execution-bar guard.' }
 if ($pine -notmatch 'time\[1\]') { throw 'HTF pack does not expose a closed timestamp.' }
+if ($pine -match '"Entry"|"TP1"|"TP2"|"TP3"') { throw 'Dashboard must not contain Entry or fixed TP rows.' }
+if ($pine -notmatch 'table\.new\(f_dash_pos\(dashboardPosition\), 2, 11') { throw 'Expected compact 11-row dashboard.' }
+if ($pine -notmatch 'var line stopLossLine') { throw 'Expected one current Stop Loss line.' }
 
 $openParen = ([regex]::Matches($pine, '\(')).Count
 $closeParen = ([regex]::Matches($pine, '\)')).Count

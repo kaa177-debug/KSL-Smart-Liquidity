@@ -31,7 +31,7 @@ The final direction is `A OR B OR C OR D`. Two-sided signals on the same candle 
 - One sweep per tracked liquidity ID.
 - Standard three-candle FVGs on D/H4/H1/M15/M5 with wick, 50%, or full-fill mitigation.
 - One active H1 demand and supply zone from the last opposing candle before confirmed displacement.
-- A current qualified range and latest Entry/Invalidation/TP1/TP2/TP3.
+- A current qualified range, liquidity target and latest structural Stop Loss.
 
 ## Scores and confidence
 
@@ -43,7 +43,7 @@ Each engine has a 0-100 rule score and an independent minimum. `BALANCED` is the
 
 ## Dashboard
 
-The 24-row `KSL CURRENT STATUS` panel reports symbol/timeframe, D/H4/H1 bias using `POSITIVE`, `NEGATIVE`, or `NEUTRAL`, nearest map values, the four engine states, final direction, confidence, score, and latest trade levels.
+The compact 11-row `KSL CURRENT STATUS` panel reports symbol/timeframe, combined D/H4/H1 bias, recent liquidity sweep, liquidity target, the four engine states, best engine, active signal, confidence, score and Stop Loss. Entry and TP rows are intentionally omitted to keep the chart clean.
 
 ## Use on XAUUSD M5
 

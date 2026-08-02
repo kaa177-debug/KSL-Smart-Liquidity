@@ -39,7 +39,7 @@ The H1 zone is the full high-low range of the last opposing H1 candle immediatel
 
 When BUY and SELL engines trigger together, the strongest score in each direction is compared. A difference of at least 15 selects the stronger side. Otherwise the result is `CONFLICT - WAIT` and no BUY/SELL final alert fires.
 
-The best engine supplies the structural invalidation. TP1 and TP2 are risk multiples. TP3 prefers nearest directional liquidity beyond TP2 and otherwise uses its configured fallback multiple.
+The best engine supplies the structural Stop Loss. The dashboard shows the nearest directional liquidity as the target reference instead of fixed TP1/TP2/TP3 rows.
 
 ## Presets
 
