@@ -43,7 +43,7 @@ Each engine has a 0-100 rule score and an independent minimum. `BALANCED` is the
 
 ## Dashboard
 
-The compact 11-row `KSL CURRENT STATUS` panel reports symbol/timeframe, combined D/H4/H1 bias, recent liquidity sweep, liquidity target, the four engine states, best engine, active signal, confidence, score and Stop Loss. Entry and TP rows are intentionally omitted to keep the chart clean.
+The tiny 7-row status panel reports symbol/timeframe, compact D/H4/H1 bias, recent liquidity sweep and target, active signal/engine, strength and Stop Loss. Clean Chart Mode hides text from level lines and makes zones nearly transparent.
 
 ## Use on XAUUSD M5
 

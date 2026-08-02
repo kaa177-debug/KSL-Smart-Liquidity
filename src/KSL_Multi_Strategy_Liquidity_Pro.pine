@@ -123,6 +123,7 @@ f_bias(float ph, float phPrev, float pl, float plPrev, float c, float fast, floa
     positiveStructure or (c > fast and fast > slow) ? 1 : negativeStructure or (c < fast and fast < slow) ? -1 : 0
 
 f_bias_text(int bias) => bias == 1 ? "POSITIVE" : bias == -1 ? "NEGATIVE" : "NEUTRAL"
+f_bias_short(int bias) => bias == 1 ? "+" : bias == -1 ? "-" : "0"
 f_dir_text(int dir) => dir == 1 ? "BUY" : dir == -1 ? "SELL" : "WAIT"
 f_status_color(int dir) => dir == 1 ? color.lime : dir == -1 ? color.red : color.yellow
 
@@ -168,12 +169,16 @@ f_draw_level(line activeLine, label activeLabel, bool visible, float price, stri
             line.set_xy1(resultLine, bar_index, price)
             line.set_xy2(resultLine, bar_index + 1, price)
             line.set_color(resultLine, levelColor)
-        if na(resultLabel)
-            resultLabel := label.new(bar_index + 1, price, caption, style=label.style_label_left, textcolor=levelColor, color=color.new(color.black, 100), size=size.tiny)
-        else
-            label.set_xy(resultLabel, bar_index + 1, price)
-            label.set_text(resultLabel, caption)
-            label.set_textcolor(resultLabel, levelColor)
+        if not cleanChart and str.length(caption) > 0
+            if na(resultLabel)
+                resultLabel := label.new(bar_index + 1, price, caption, style=label.style_label_left, textcolor=levelColor, color=color.new(color.black, 100), size=size.tiny)
+            else
+                label.set_xy(resultLabel, bar_index + 1, price)
+                label.set_text(resultLabel, caption)
+                label.set_textcolor(resultLabel, levelColor)
+        else if not na(resultLabel)
+            label.delete(resultLabel)
+            resultLabel := na
     else
         if not na(resultLine)
             line.delete(resultLine)
@@ -191,11 +196,11 @@ f_manage_fvg(box activeBox, bool enabled, bool newGap, float top, float bottom, 
     if newGap and not na(top) and not na(bottom) and top > bottom
         if not na(result)
             box.delete(result)
-        result := box.new(left=bar_index, top=top, right=bar_index + 1, bottom=bottom, extend=extend.right, border_color=visibleBorder, bgcolor=visibleFill, text=enabled ? caption : "", text_color=visibleBorder, text_size=size.tiny)
+        result := box.new(left=bar_index, top=top, right=bar_index + 1, bottom=bottom, extend=extend.right, border_color=visibleBorder, bgcolor=visibleFill, text=enabled and not cleanChart ? caption : "", text_color=visibleBorder, text_size=size.tiny)
     if not na(result)
         box.set_border_color(result, visibleBorder)
         box.set_bgcolor(result, visibleFill)
-        box.set_text(result, enabled ? caption : "")
+        box.set_text(result, enabled and not cleanChart ? caption : "")
         float boxTop = box.get_top(result)
         float boxBottom = box.get_bottom(result)
         float threshold = bullish ? (fvgMitigation == "Wick Touch" ? boxTop : fvgMitigation == "50% Fill" ? (boxTop + boxBottom) * 0.5 : boxBottom) : (fvgMitigation == "Wick Touch" ? boxBottom : fvgMitigation == "50% Fill" ? (boxTop + boxBottom) * 0.5 : boxTop)
@@ -207,7 +212,6 @@ f_manage_fvg(box activeBox, bool enabled, bool newGap, float top, float bottom, 
 
 f_in_box(box activeBox) => not na(activeBox) and high >= box.get_bottom(activeBox) and low <= box.get_top(activeBox)
 f_price(float value) => na(value) ? "N/A" : str.tostring(value, format.mintick)
-f_engine_short(bool enabled, bool buy, bool sell) => not enabled ? "OFF" : buy ? "BUY" : sell ? "SELL" : "WAIT"
 f_dash_pos(string value) => value == "Top Left" ? position.top_left : value == "Bottom Right" ? position.bottom_right : value == "Bottom Left" ? position.bottom_left : position.top_right
 
 // =============================================================================
@@ -379,7 +383,7 @@ if newDemand
     if not na(demandBox)
         box.delete(demandBox)
     if showZones
-        demandBox := box.new(bar_index, demandTop, bar_index + 1, demandBottom, extend=extend.right, border_color=color.lime, bgcolor=color.new(color.lime, 88), text="H1 DEMAND", text_color=color.lime, text_size=size.tiny)
+        demandBox := box.new(bar_index, demandTop, bar_index + 1, demandBottom, extend=extend.right, border_color=color.new(color.lime, cleanChart ? 35 : 0), bgcolor=color.new(color.lime, cleanChart ? 97 : 88), text=cleanChart ? "" : "H1 DEMAND", text_color=color.lime, text_size=size.tiny)
 if newSupply
     supplyTop := h1H2
     supplyBottom := h1L2
@@ -387,7 +391,7 @@ if newSupply
     if not na(supplyBox)
         box.delete(supplyBox)
     if showZones
-        supplyBox := box.new(bar_index, supplyTop, bar_index + 1, supplyBottom, extend=extend.right, border_color=color.red, bgcolor=color.new(color.red, 88), text="H1 SUPPLY", text_color=color.red, text_size=size.tiny)
+        supplyBox := box.new(bar_index, supplyTop, bar_index + 1, supplyBottom, extend=extend.right, border_color=color.new(color.red, cleanChart ? 35 : 0), bgcolor=color.new(color.red, cleanChart ? 97 : 88), text=cleanChart ? "" : "H1 SUPPLY", text_color=color.red, text_size=size.tiny)
 if demandState > 0 and not na(demandTop)
     if close < demandBottom
         demandState := 5
@@ -716,7 +720,7 @@ var box rangeBox = na
 if enableD and rangeQuality and (na(rangeBox) or barstate.islast)
     if not na(rangeBox)
         box.delete(rangeBox)
-    rangeBox := box.new(bar_index - rangeBars, candidateRangeHigh, bar_index, candidateRangeLow, border_color=color.orange, bgcolor=color.new(color.orange, cleanChart ? 95 : 88), text="ACTIVE RANGE", text_color=color.orange, text_size=size.tiny)
+    rangeBox := box.new(bar_index - rangeBars, candidateRangeHigh, bar_index, candidateRangeLow, border_color=color.new(color.orange, cleanChart ? 35 : 0), bgcolor=color.new(color.orange, cleanChart ? 97 : 88), text=cleanChart ? "" : "ACTIVE RANGE", text_color=color.orange, text_size=size.tiny)
 if (not enableD or not rangeQuality) and not na(rangeBox)
     box.delete(rangeBox)
     rangeBox := na
@@ -790,41 +794,35 @@ if showMajorStructure and not na(localPL)
 // =============================================================================
 // Dashboard - current rule-based state
 // =============================================================================
-string biasSummary = "D " + f_bias_text(dBias) + " | H4 " + f_bias_text(h4Bias) + " | H1 " + f_bias_text(h1Bias)
+string biasSummary = "D " + f_bias_short(dBias) + " | H4 " + f_bias_short(h4Bias) + " | H1 " + f_bias_short(h1Bias)
 string liquidityStatus = recentSellSweep and recentBuySweep ? "BOTH - WAIT" : recentSellSweep ? "SELL-SIDE SWEPT" : recentBuySweep ? "BUY-SIDE SWEPT" : "NO SWEEP"
 float activeLiquidityTarget = activeDirection == 1 ? nearestLiquidityAbove : activeDirection == -1 ? nearestLiquidityBelow : na
-string engineSummary = "A " + f_engine_short(enableA, engineABuy, engineASell) + " | B " + f_engine_short(enableB, engineBBuy, engineBSell) + " | C " + f_engine_short(enableC, engineCBuy, engineCSell) + " | D " + f_engine_short(enableD, engineDBuy, engineDSell)
 string finalStatus = conflict ? "CONFLICT - WAIT" : f_dir_text(activeDirection)
-var table dashboard = table.new(f_dash_pos(dashboardPosition), 2, 11, border_width=1)
+string liquiditySummary = liquidityStatus + " | TGT " + f_price(activeLiquidityTarget)
+string signalSummary = finalStatus + " | " + activeEngine
+string strengthSummary = activeConfidence + "  " + str.tostring(activeScore) + "/100"
+var table dashboard = table.new(f_dash_pos(dashboardPosition), 2, 7, border_width=1)
 if barstate.islast
     if showDashboard
         color header = color.rgb(35, 75, 170)
         color panel = color.rgb(50, 52, 62)
         color key = color.silver
-        table.cell(dashboard, 0, 0, "KSL MULTI-STRATEGY", bgcolor=header, text_color=color.white)
-        table.cell(dashboard, 1, 0, "KSL CURRENT STATUS", bgcolor=header, text_color=color.white)
-        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow)
-        table.cell(dashboard, 0, 2, "HTF Bias", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 3, liquidityStatus, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray)
-        table.cell(dashboard, 0, 4, "Liquidity Target", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 4, f_price(activeLiquidityTarget), bgcolor=panel, text_color=color.aqua)
-        table.cell(dashboard, 0, 5, "Engines", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 5, engineSummary, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 6, "Best Engine", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 6, activeEngine, bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 7, "Signal", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 7, finalStatus, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection))
-        table.cell(dashboard, 0, 8, "Confidence", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 8, activeConfidence, bgcolor=panel, text_color=color.yellow)
-        table.cell(dashboard, 0, 9, "Score", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 9, str.tostring(activeScore) + "/100", bgcolor=panel, text_color=color.white)
-        table.cell(dashboard, 0, 10, "Stop Loss", bgcolor=panel, text_color=key)
-        table.cell(dashboard, 1, 10, f_price(activeStop), bgcolor=panel, text_color=color.red)
+        table.cell(dashboard, 0, 0, "KSL", bgcolor=header, text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 0, "STATUS", bgcolor=header, text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 0, 1, "Symbol / TF", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 1, syminfo.ticker + " / " + timeframe.period + (executionAllowed ? " READY" : " USE M5"), bgcolor=panel, text_color=executionAllowed ? color.lime : color.yellow, text_size=size.tiny)
+        table.cell(dashboard, 0, 2, "Bias", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 2, biasSummary, bgcolor=panel, text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 0, 3, "Liquidity", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 3, liquiditySummary, bgcolor=panel, text_color=recentSellSweep ? color.lime : recentBuySweep ? color.red : color.gray, text_size=size.tiny)
+        table.cell(dashboard, 0, 4, "Signal", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 4, signalSummary, bgcolor=panel, text_color=conflict ? color.yellow : f_status_color(activeDirection), text_size=size.tiny)
+        table.cell(dashboard, 0, 5, "Strength", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 5, strengthSummary, bgcolor=panel, text_color=color.yellow, text_size=size.tiny)
+        table.cell(dashboard, 0, 6, "Stop Loss", bgcolor=panel, text_color=key, text_size=size.tiny)
+        table.cell(dashboard, 1, 6, f_price(activeStop), bgcolor=panel, text_color=color.red, text_size=size.tiny)
     else
-        table.clear(dashboard, 0, 0, 1, 10)
+        table.clear(dashboard, 0, 0, 1, 6)
 
 // =============================================================================
 // Debug - one last-bar label only

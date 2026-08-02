@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 - 2026-08-02
+
+- Reduced the dashboard to seven tiny decision rows.
+- Combined liquidity status/target, signal/engine, and confidence/score.
+- Clean Chart Mode now hides line and zone text.
+- Made demand, supply and range fills nearly transparent.
+
 ## 1.0.1 - 2026-08-02
 
 - Reduced the dashboard from 24 rows to 11 decision-focused rows.
